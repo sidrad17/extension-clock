@@ -180,3 +180,25 @@ def read_trials(path=TRIALS_CSV) -> pd.DataFrame:
     for c in ("sharpe_fc", "sharpe_cal"):
         df[c] = pd.to_numeric(df[c].replace("", np.nan), errors="coerce")
     return df
+
+
+def trial_counts(trials: pd.DataFrame) -> dict:
+    """Distinct variants tested vs total logged runs (CLAUDE.md section 15, team decision of Oct 3, 2026).
+
+    A variant is a distinct config_hash: identical configurations re-run (and re-logged) count once. Each
+    config_hash contributes the Sharpe columns of its latest row (the log is in time order); reruns logged so far
+    have identical Sharpes, and n_configs_with_differing_sharpes counts any that do not (to 1e-9). Returns the two
+    counts and the trial Sharpes for each: every row (total logged runs) and the latest row per config_hash."""
+    cols = ["sharpe_fc", "sharpe_cal"]
+    latest = trials.groupby("config_hash", sort=False).tail(1)
+    differ = 0
+    for _, g in trials.groupby("config_hash", sort=False):
+        for c in cols:
+            v = g[c].dropna().to_numpy(float)
+            if len(v) > 1 and np.ptp(v) > 1e-9:
+                differ += 1
+                break
+    return {"total_logged_runs": int(len(trials)), "distinct_variants": int(trials["config_hash"].nunique()),
+            "n_configs_with_differing_sharpes": int(differ),
+            "sharpes_all_rows": pd.concat([trials[c] for c in cols]).dropna().to_numpy(float),
+            "sharpes_distinct": pd.concat([latest[c] for c in cols]).dropna().to_numpy(float)}

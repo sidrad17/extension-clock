@@ -1,0 +1,44 @@
+# CME Treasury futures used by the futures layer (CLAUDE.md 7.9, section 15).
+# Source: CME Globex security definitions as published in Databento GLBX.MDP3, `definition` schema (fields
+# unit_of_measure_qty = face value, min_price_increment = tick in price points), read from the one-day snapshots in
+# data/cache/databento/definition/ (pulled 2026-10-03, first weekday of each month 2010-06 to 2024-09).
+# point_value_usd = face / 100 ($ per 1.00 price point); tick_value_usd = tick_size x point_value_usd.
+# The code takes the tick size point in time from the definitions and checks point_value_usd against this file.
+# The CME product pages (cmegroup.com contract specs) could not be fetched from this machine (timeout / HTTP 403 on
+# 2026-10-03), so they are not cited as checked.
+ZT:
+  name: 2-Year T-Note
+  face_usd: 200000
+  point_value_usd: 2000
+  tick_size_points: [[2010-06-07, 0.0078125], [2019-01-14, 0.00390625]]   # 1/4 of 1/32, then 1/8 of 1/32
+  tick_value_usd: [[2010-06-07, 15.625], [2019-01-14, 7.8125]]
+ZF:
+  name: 5-Year T-Note
+  face_usd: 100000
+  point_value_usd: 1000
+  tick_size_points: [[2010-06-07, 0.0078125]]                              # 1/4 of 1/32
+  tick_value_usd: [[2010-06-07, 7.8125]]
+ZN:
+  name: 10-Year T-Note
+  face_usd: 100000
+  point_value_usd: 1000
+  tick_size_points: [[2010-06-07, 0.015625]]                               # 1/2 of 1/32
+  tick_value_usd: [[2010-06-07, 15.625]]
+TN:
+  name: Ultra 10-Year T-Note (first contract TNH6, trading from 2016-01-10)
+  face_usd: 100000
+  point_value_usd: 1000
+  tick_size_points: [[2016-02-01, 0.015625]]                               # 1/2 of 1/32
+  tick_value_usd: [[2016-02-01, 15.625]]
+ZB:
+  name: U.S. Treasury Bond
+  face_usd: 100000
+  point_value_usd: 1000
+  tick_size_points: [[2010-06-07, 0.03125]]                                # 1/32
+  tick_value_usd: [[2010-06-07, 31.25]]
+UB:
+  name: Ultra U.S. Treasury Bond
+  face_usd: 100000
+  point_value_usd: 1000
+  tick_size_points: [[2010-06-07, 0.03125]]                                # 1/32
+  tick_value_usd: [[2010-06-07, 31.25]]

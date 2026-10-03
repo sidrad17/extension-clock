@@ -1,1 +1,354 @@
-"""Tests for src/futures.py: quarterly roll selection and DV01 regression recovery."""
+"""Tests for src/futures.py and src/data/databento_futures.py on synthetic data (no network, no Databento file):
+quarterly roll selection, FID, DV01 regression recovery, P&L and costs, netting, the notional cap, the TN fallback,
+settlement extraction, symbol years, the derived-table round trip, trial counting and the run_all futures path."""
+from dataclasses import replace
+
+import numpy as np
+import pandas as pd
+import pytest
+
+import run_all
+from config.futures import SUPPLY_CONTRACT
+from src import futures as fut
+from src import report
+from src.backtest import month_end_windows, run_strategy
+from src.calendar import BondCalendar
+from src.data import databento_futures as dbf
+from src.flowclock import demand_legs
+from src.metrics import required_metrics
+from src.risk import RiskConfig, sigma_bp
+from src.trial_log import trial_counts
+
+DAYS = pd.bdate_range("2014-01-02", "2016-12-30")
+CAL = BondCalendar(DAYS)
+RNG = np.random.default_rng(21)
+TENORS = ["DGS2", "DGS3", "DGS5", "DGS7", "DGS10", "DGS20", "DGS30"]
+COMMON = np.cumsum(RNG.normal(0, 0.05, len(DAYS)))                  # yields share a level factor, as real ones do
+YLD = pd.DataFrame({t: lvl + COMMON + np.cumsum(RNG.normal(0, 0.01, len(DAYS))) for t, lvl in
+                    zip(TENORS, [1.0, 1.3, 1.7, 2.0, 2.3, 2.6, 2.9])}, index=DAYS)
+RF = pd.Series(0.00002, index=DAYS)
+PV = {"ZT": 2000.0, "ZF": 1000.0, "ZN": 1000.0, "TN": 1000.0, "ZB": 1000.0, "UB": 1000.0}
+TRUE_DV01 = {"ZT": 40.0, "ZF": 50.0, "ZN": 70.0, "TN": 90.0, "ZB": 150.0, "UB": 250.0}
+DRIVER = {"ZT": "DGS2", "ZF": "DGS5", "ZN": "DGS10", "TN": "DGS10", "ZB": "DGS20", "UB": "DGS30"}
+CODES = {3: "H", 6: "M", 9: "U", 12: "Z"}
+TN_FIRST_LISTED = pd.Timestamp("2015-06-01")
+OFF = RiskConfig(fomc_half=False, dd_rule=False, notional_cap_on=False)
+
+
+def synthetic_long(noise: float = 0.0):
+    """Quarterly contracts of every root, delivering 2014-03..2017-06, listed 9 months before delivery and
+    trading to the 20th of the delivery month; settle moves by exactly -TRUE_DV01 per bp of the driver yield."""
+    rng = np.random.default_rng(5)
+    s_rows, v_rows, d_rows = [], [], []
+    for root in PV:
+        for dlv in pd.period_range("2014-03", "2017-06", freq="Q-DEC").asfreq("M", "end"):
+            listed = (dlv - 9).start_time
+            if root == "TN":
+                listed = max(listed, TN_FIRST_LISTED)
+            last = dlv.start_time + pd.Timedelta(days=19)
+            days = DAYS[(DAYS >= listed) & (DAYS <= last)]
+            if len(days) == 0:
+                continue
+            c = f"{root}{CODES[dlv.month]}{dlv.year}"
+            y = YLD[DRIVER[root]].reindex(days)
+            s = 120.0 - TRUE_DV01[root] * (y - YLD[DRIVER[root]].iloc[0]) * 100.0 / PV[root]
+            s = s + rng.normal(0, noise, len(s))
+            front = [(d.to_period("M") < dlv) and (d.to_period("M") >= dlv - 3) for d in days]
+            for d, px, f in zip(days, s, front):
+                s_rows.append((c, root, dlv, d, float(px)))
+                v_rows.append((c, root, dlv, d, 1000.0 if f else 100.0))
+            for snap in pd.date_range(listed, last, freq="MS"):
+                tick = (15.625 if snap < pd.Timestamp("2015-07-01") else 7.8125) if root == "ZT" else \
+                    {"ZF": 7.8125, "ZN": 15.625, "TN": 15.625, "ZB": 31.25, "UB": 31.25}[root]
+                d_rows.append((snap, c, root, dlv, c[:3] + str(dlv.year)[-1], pd.NaT, tick / PV[root],
+                               PV[root] * 100, PV[root], tick))
+    st = pd.DataFrame(s_rows, columns=["contract", "root", "delivery", "trade_date", "settle"])
+    vo = pd.DataFrame(v_rows, columns=["contract", "root", "delivery", "date", "volume"])
+    defs = pd.DataFrame(d_rows, columns=["snapshot", "contract", "root", "delivery", "raw_symbol", "expiration",
+                                         "tick_size", "face", "point_value", "tick_value"])
+    return st, vo, defs
+
+
+ST, VO, DEFS = synthetic_long()
+MKT = fut.build_market(ST, VO, DEFS, CAL, PV)
+
+
+# ------------------------------------------------------------------------------------------------ roll rule
+
+def test_first_intention_day():
+    rc = fut.RollCalendar(CAL)
+    assert fut.first_intention_day(pd.Period("2015-03", "M"), rc) == pd.Timestamp("2015-02-26")   # Mar 2 - 2
+    assert fut.first_intention_day(pd.Period("2015-06", "M"), rc) == pd.Timestamp("2015-05-28")   # Jun 1 - 2
+    # beyond the bond calendar: plain weekdays (no data after IS_END is read)
+    assert fut.first_intention_day(pd.Period("2017-03", "M"), rc) == pd.Timestamp("2017-02-27")
+
+
+@pytest.mark.parametrize("month", ["2015-02", "2015-05", "2015-08", "2015-11"])
+def test_feb_may_aug_nov_month_ends_pick_the_next_quarterly(month):
+    T = CAL.month_end(month)
+    E = CAL.offset(T, -4)
+    p = pd.Period(month, "M")
+    front = f"ZN{CODES[(p + 1).month]}{(p + 1).year}"
+    nxt = f"ZN{CODES[(p + 4).month]}{(p + 4).year}"
+    assert MKT.volume.at[CAL.offset(E, -1), front] > MKT.volume.at[CAL.offset(E, -1), nxt]   # front is busier
+    c = fut.select_contract(MKT, "ZN", E, T)
+    assert c["contract"] == nxt and c["fid"] > CAL.offset(T, 5)
+    assert MKT.fid[front] <= CAL.offset(T, 5)
+
+
+@pytest.mark.parametrize("month", ["2015-01", "2015-04", "2015-07", "2015-10"])
+def test_other_month_ends_pick_the_busiest_eligible(month):
+    T = CAL.month_end(month)
+    c = fut.select_contract(MKT, "ZN", CAL.offset(T, -4), T)
+    p = pd.Period(month, "M")
+    assert c["contract"] == f"ZN{CODES[(p + 2).month]}{(p + 2).year}"
+
+
+def test_volume_is_read_on_the_day_before_entry():
+    T = CAL.month_end("2015-01")
+    E = CAL.offset(T, -4)
+    vol = MKT.volume.copy()
+    vol.loc[E, "ZNM2015"] = 1e9                                   # entry-day volume must not matter
+    m = replace(MKT, volume=vol)
+    assert fut.select_contract(m, "ZN", E, T)["contract"] == "ZNH2015"
+    vol.loc[CAL.offset(E, -1), "ZNM2015"] = 1e9                    # the day before decides
+    m = replace(MKT, volume=vol)
+    sel = fut.select_contract(m, "ZN", E, T)
+    assert sel["contract"] == "ZNM2015" and sel["volume_day"] == CAL.offset(E, -1)
+
+
+# ------------------------------------------------------------------------------------------------ DV01
+
+def test_dv01_regression_recovers_the_slope():
+    st, vo, defs = synthetic_long(noise=0.002)
+    m = fut.build_market(st, vo, defs, CAL, PV)
+    for root, c in (("ZN", "ZNH2016"), ("ZT", "ZTH2016"), ("UB", "UBH2016")):
+        r = fut.dv01_regression(m, c, YLD[DRIVER[root]], pd.Timestamp("2015-11-20"))
+        assert r["n"] == 60
+        assert r["dv01"] == pytest.approx(TRUE_DV01[root], rel=0.03)
+        assert r["r2"] > 0.95
+
+
+def test_dv01_regression_needs_50_valid_changes_ending_the_day_before_entry():
+    E = pd.Timestamp("2015-11-20")
+    s = MKT.settle.copy()
+    s.loc[E, "ZNH2016"] = np.nan                                    # the entry day itself is not used
+    m = replace(MKT, settle=s)
+    assert fut.dv01_regression(m, "ZNH2016", YLD["DGS10"], E)["n"] == 60
+    idx = MKT.days[MKT.days.get_loc(E) - 20: MKT.days.get_loc(E) - 14]
+    s.loc[idx, "ZNH2016"] = np.nan                                  # 6 missing levels in a row remove 7 changes
+    m = replace(MKT, settle=s)
+    r = fut.dv01_regression(m, "ZNH2016", YLD["DGS10"], E)
+    assert r["n"] == 53 and r["dv01"] == pytest.approx(70.0)
+    s.loc[MKT.days[MKT.days.get_loc(E) - 40: MKT.days.get_loc(E) - 34], "ZNH2016"] = np.nan
+    m = replace(MKT, settle=s)
+    assert np.isnan(fut.dv01_regression(m, "ZNH2016", YLD["DGS10"], E)["dv01"])     # 46 < 50
+
+
+# ------------------------------------------------------------------------------------------------ engine
+
+def month_end(months, cfg=OFF):
+    win = month_end_windows(CAL, pd.period_range(*months, freq="M"))
+    legs = fut.month_end_legs(demand_legs(win, CAL))
+    prep = fut.prepare_legs(legs, MKT, YLD)
+    nav = DAYS[(DAYS >= "2015-01-01") & (DAYS <= "2016-11-30")]
+    return fut.run_futures_book("me", legs, prep, MKT, YLD, RF, pd.DatetimeIndex([]), CAL, nav, cfg,
+                                demand_per_year=12, unit="month"), legs, prep
+
+
+def test_single_leg_contracts_pnl_and_costs():
+    res, legs, prep = month_end(("2015-03", "2015-03"))
+    L = res.legs.iloc[0]
+    E, T = L["entry"], L["exit"]
+    sig = sigma_bp(YLD["DGS10"], E)
+    target = 0.01 * 1e7 / (sig * 2.0)
+    assert L["dv01_target"] == pytest.approx(target)
+    assert L["contracts"] == np.floor(target / L["dv01_contract"] + 0.5) and L["contract"] == "ZNM2015"
+    dsettle = MKT.settle.at[T, "ZNM2015"] - MKT.settle.at[E, "ZNM2015"]
+    assert L["gross_pnl"] == pytest.approx(L["contracts"] * dsettle * 1000.0)
+    assert L["cost"] == pytest.approx(L["contracts"] * (15.625 + 2.0))
+    d = res.daily
+    assert d.at[E, "cost"] == pytest.approx(L["cost"] / 2) and d.at[T, "cost"] == pytest.approx(L["cost"] / 2)
+    assert d["pnl"].sum() == pytest.approx(L["net_pnl"])
+    assert (d["total"] - d["excess"]).to_numpy() == pytest.approx(RF.reindex(d.index).to_numpy())
+    assert L["notional"] == pytest.approx(L["contracts"] * MKT.settle.at[E, "ZNM2015"] * 1000.0)
+
+
+def test_cost_stress_and_metrics_helpers():
+    r1, legs, prep = month_end(("2015-01", "2016-06"))
+    r2, _, _ = month_end(("2015-01", "2016-06"), cfg=RiskConfig(fomc_half=False, dd_rule=False,
+                                                                  notional_cap_on=False, cost_mult=2.0))
+    assert r2.daily["cost"].sum() == pytest.approx(2 * r1.daily["cost"].sum())
+    m = required_metrics(fut.as_strategy(r1))
+    assert m["n_windows"] == 18 and m["sharpe"] == pytest.approx(
+        r1.daily["excess"].mean() / r1.daily["excess"].std(ddof=1) * np.sqrt(252))
+
+
+def test_cost_netting_by_contract():
+    """A long leg and a short leg in the same contract: the short entry nets the long, the common exit trades 0."""
+    d0, d1, d2 = pd.Timestamp("2015-10-01"), pd.Timestamp("2015-10-08"), pd.Timestamp("2015-10-15")
+    legs = pd.DataFrame({"leg_id": ["a", "b"], "unit_id": ["a", "b"], "kind": ["post", "pre"],
+                         "tenor": ["DGS10", "DGS10"], "entry": [d0, d1], "exit": [d2, d2], "sign": [1.0, -1.0],
+                         "base_risk": [0.0025, 0.0025], "hold_days": [5, 5], "w": [1.0, 1.0],
+                         "product": ["ZN", "ZN"], "tenor_years": [10.0, 10.0]})
+    prep = fut.prepare_legs(legs, MKT, YLD)
+    assert prep["contract"].nunique() == 1
+    nav = DAYS[(DAYS >= "2015-09-01") & (DAYS <= "2015-11-30")]
+    res = fut.run_futures_book("net", legs, prep, MKT, YLD, RF, pd.DatetimeIndex([]), CAL, nav, OFF)
+    na, nb = res.legs["contracts"]
+    half = (15.625 + 2.0) / 2
+    assert res.daily.at[d0, "cost"] == pytest.approx(na * half)
+    assert res.daily.at[d1, "cost"] == pytest.approx(nb * half)
+    assert res.daily.at[d2, "cost"] == pytest.approx(abs(na - nb) * half)
+    assert res.legs["cost"].sum() == pytest.approx((na + nb) * 2 * half)        # attributed, not netted
+
+
+def test_notional_cap_scales_new_legs_and_rounds_down():
+    d0, d1 = pd.Timestamp("2015-10-01"), pd.Timestamp("2015-10-08")
+    legs = pd.DataFrame({"leg_id": ["a", "b"], "unit_id": ["a", "b"], "kind": ["post", "post"],
+                         "tenor": ["DGS2", "DGS2"], "entry": [d0, d0], "exit": [d1, d1], "sign": [1.0, 1.0],
+                         "base_risk": [0.05, 0.05], "hold_days": [5, 5], "w": [1.0, 1.0],
+                         "product": ["ZT", "ZT"], "tenor_years": [2.0, 2.0]})
+    prep = fut.prepare_legs(legs, MKT, YLD)
+    nav = DAYS[(DAYS >= "2015-09-01") & (DAYS <= "2015-11-30")]
+    res = fut.run_futures_book("cap", legs, prep, MKT, YLD, RF, pd.DatetimeIndex([]), CAL, nav,
+                               RiskConfig(fomc_half=False, dd_rule=False))
+    per = MKT.settle.at[d0, prep.at[0, "contract"]] * 2000.0
+    assert (res.legs["cap_mult"] < 1).all()
+    assert res.legs["notional"].sum() <= 3e7 + 1e-6
+    f = res.legs.at[0, "cap_mult"]
+    assert res.legs.at[0, "contracts"] == np.floor(np.floor(res.legs.at[0, "contracts_raw"] + 0.5) * f)
+    assert res.legs.at[0, "notional"] == pytest.approx(res.legs.at[0, "contracts"] * per)
+
+
+def test_tn_falls_back_to_zn_before_it_can_be_sized():
+    """TN contracts list from 2015-06 (synthetic): legs before TN's first sizable entry trade ZN; later TN legs
+    trade TN, and a later unsizable TN leg is not traded (no fallback)."""
+    dates = pd.to_datetime(["2015-03-10", "2015-07-14", "2015-10-13", "2016-01-12", "2016-04-12"])
+    legs = pd.DataFrame({"leg_id": [f"e{i}" for i in range(5)], "unit_id": [f"e{i}" for i in range(5)],
+                         "kind": "post", "tenor": "DGS10", "entry": dates,
+                         "exit": [CAL.offset(d, 5) for d in dates], "sign": 1.0, "base_risk": 0.0025,
+                         "hold_days": 5, "w": 1.0, "product": SUPPLY_CONTRACT["DGS10"], "tenor_years": 10.0})
+    s = MKT.settle.copy()
+    tn = [c for c in s.columns if c.startswith("TN")]
+    s.loc[CAL.offset(dates[4], -30):CAL.offset(dates[4], -1), tn] = np.nan     # last TN leg cannot be sized
+    m = replace(MKT, settle=s)
+    prep = fut.prepare_legs(legs, m, YLD)
+    first = pd.Timestamp(prep.attrs["first_sizable_entry"]["TN"])
+    assert first > TN_FIRST_LISTED
+    before = legs["entry"] < first
+    assert before.any() and (~before).sum() >= 2
+    assert (prep.loc[before, "root"] == "ZN").all() and prep.loc[before, "fallback_used"].all()
+    assert (prep.loc[~before, "root"] == "TN").all() and not prep.loc[~before, "fallback_used"].any()
+    assert prep.loc[4, "status"] == "no_dv01" and prep.loc[~before & (legs.index < 4), "status"].eq("ok").all()
+
+
+# ------------------------------------------------------------------------------------------------ data layer
+
+def test_symbol_years_and_outrights():
+    assert dbf.resolve_year(3, pd.Timestamp("2024-01-05")) == 2023          # a late message for ZNZ3
+    assert dbf.resolve_year(5, pd.Timestamp("2024-09-03")) == 2025
+    assert dbf.resolve_year(0, pd.Timestamp("2019-10-16")) == 2020
+    assert dbf.parse_outright("ZNZ3") == ("ZN", "Z", 3)
+    for s in ("TNG1", "ZNH5-ZNM5", "UD:Z1: TL 0219818996", "ZQH5", "ZNH"):
+        assert dbf.parse_outright(s) is None
+    ids = dbf.contract_ids(pd.Series(["ZTU4", "TNX0"]), pd.Series(pd.to_datetime(["2024-09-03", "2010-10-25"])))
+    assert ids.loc[0, "contract"] == "ZTU2024" and ids.loc[0, "delivery"] == pd.Period("2024-09", "M")
+    assert pd.isna(ids.loc[1, "contract"])
+
+
+def test_settlement_is_the_last_message_per_trade_date():
+    utc = lambda x: pd.Timestamp(x, tz="UTC")                                      # noqa: E731
+    s = pd.DataFrame({"ts_ref": [utc("2023-04-21"), utc("2023-04-21"), utc("2023-04-21"), pd.NaT,
+                                 utc("2023-04-21"), utc("2024-10-01")],
+                      "price": [116.046875, 115.625, 115.625, 115.0, 99.0, 110.0],
+                      "symbol": ["ZNZ3", "ZNZ3", "ZNZ3", "ZNZ3", "ZNZ3-ZNH4", "ZNZ4"]},
+                     index=pd.DatetimeIndex([utc("2023-04-21 19:00"), utc("2023-04-21 20:02"),
+                                             utc("2023-04-23 16:04"), utc("2023-04-24 17:00"),
+                                             utc("2023-04-21 21:00"), utc("2024-10-01 00:30")], name="ts_recv"))
+    out = dbf.settlements_from_stats(s, end="2024-09-30")
+    assert len(out) == 1
+    r = out.iloc[0]
+    assert r["contract"] == "ZNZ2023" and r["trade_date"] == pd.Timestamp("2023-04-21") and r["settle"] == 115.625
+
+
+def test_tick_value_is_point_in_time():
+    assert MKT.tick_value("ZTZ2015", "2015-06-30") == 15.625
+    assert MKT.tick_value("ZTZ2015", "2015-07-01") == 7.8125
+    assert MKT.tick_value("ZTZ2015", "2014-01-02") == 15.625        # before its first snapshot: the first one
+
+
+def test_tables_round_trip_is_exact(tmp_path):
+    r1, _, _ = month_end(("2015-01", "2016-06"))
+    leg_t, day_t = fut.to_tables({"month_end_zn": r1})
+    leg_t.to_csv(tmp_path / "l.csv", index=False, float_format="%.17g")
+    day_t.to_csv(tmp_path / "d.csv", float_format="%.17g")
+    str_cols = ("leg_id", "unit_id", "kind", "tenor", "product", "root", "contract", "status")
+    lt = pd.read_csv(tmp_path / "l.csv", dtype={c: str for c in str_cols}, keep_default_na=False,
+                     na_values={c: [""] for c in fut.LEG_TABLE_COLS if c not in str_cols},
+                     float_precision="round_trip")
+    dt = pd.read_csv(tmp_path / "d.csv", index_col="date", float_precision="round_trip")
+    back = fut.from_tables(lt, dt, RF, {"month_end_zn": "month"}, base_cfg=OFF)["month_end_zn"]
+    assert (back.daily["excess"].to_numpy() == r1.daily["excess"].to_numpy()).all()
+    a, b = required_metrics(fut.as_strategy(r1)), required_metrics(fut.as_strategy(back))
+    assert a == b
+
+
+def test_trial_counts_distinct_and_rows():
+    t = pd.DataFrame({"config_hash": ["a", "b", "a", "c", "b"], "sharpe_fc": [0.5, np.nan, 0.5, 0.1, np.nan],
+                      "sharpe_cal": [0.4, 0.3, 0.4, np.nan, 0.3]})
+    tc = trial_counts(t)
+    assert tc["total_logged_runs"] == 5 and tc["distinct_variants"] == 3
+    assert sorted(tc["sharpes_distinct"]) == [0.1, 0.3, 0.4, 0.5] and len(tc["sharpes_all_rows"]) == 7
+    assert tc["n_configs_with_differing_sharpes"] == 0
+    t.loc[2, "sharpe_fc"] = 0.6
+    assert trial_counts(t)["n_configs_with_differing_sharpes"] == 1
+
+
+# ------------------------------------------------------------------------------------------------ run_all
+
+def test_run_all_futures_tables_then_block(monkeypatch, tmp_path):
+    """--futures builds the derived tables; every run computes the futures block from them (identically), and with
+    no tables the block is skipped."""
+    (tmp_path / "tables").mkdir()
+    monkeypatch.setattr(report, "OUTPUTS", tmp_path)
+    monkeypatch.setattr(run_all, "FUT_START", "2015-01-01")
+    monkeypatch.setattr(run_all, "IS_END", "2016-09-30")
+    monkeypatch.setattr(dbf, "load_definition_snapshots", lambda: DEFS)
+    monkeypatch.setattr(dbf, "load_settlements", lambda end: ST)
+    monkeypatch.setattr(dbf, "load_volume", lambda end: VO)
+    monkeypatch.setattr(run_all.fus, "ALIGNMENT_DATES", ["2015-06-10", "2015-11-09", "2016-03-09"])
+    logged = []
+    monkeypatch.setattr(run_all, "log_trials", lambda rows: logged.extend(rows) or len(rows))
+    months = pd.period_range("2014-06", "2016-09", freq="M")
+    win = month_end_windows(CAL, months)
+    nav_cash = DAYS[(DAYS >= "2014-06-01") & (DAYS <= "2016-09-30")]
+    xs = pd.Series(RNG.normal(0.0001, 0.003, len(DAYS)), index=DAYS)
+    cash = run_strategy("co", win, pd.Series(1.0, index=months), xs, RF, YLD["DGS10"], YLD["DGS10"], 10.0,
+                        pd.DatetimeIndex(["2015-06-17"]), CAL, nav_cash, RiskConfig())
+    A = pd.to_datetime(["2015-02-10", "2015-03-24", "2015-05-12", "2015-08-11", "2015-11-09", "2016-02-09",
+                        "2016-05-10", "2016-08-09"])
+    tenors = ["DGS3", "DGS10", "DGS30", "DGS2", "DGS5", "DGS7", "DGS20", "DGS10"]
+    ev = pd.DataFrame({"event_id": [f"{a.date()}_{t}" for a, t in zip(A, tenors)], "tenor": tenors, "A": A,
+                       "pre_entry": [CAL.offset(a, -5) for a in A], "post_exit": [CAL.offset(a, 5) for a in A],
+                       "w_pre": 1.0, "w_post": 1.0, "skipped": False, "window_complete": True})
+    fomc = pd.DatetimeIndex(["2015-06-17"])
+    kw = dict(cash_cal=cash, cash_supply_daily=pd.Series(RNG.normal(0, 0.001, len(nav_cash)), index=nav_cash), rf=RF,
+              git={"commit": "x", "dirty": False}, t0=0.0)
+    assert run_all.futures(**kw) is None                                     # no tables yet: skipped
+    run_all._build_futures_tables(CAL, win, months[months >= pd.Period("2015-01", "M")], fomc, RF, YLD["DGS10"],
+                                  ev, pd.DatetimeIndex(list(ev["pre_entry"]) + list(A)), YLD, run_all.fut_paths(),
+                                  0.0)
+    for k in ("legs", "daily", "checks"):
+        assert (tmp_path / "tables" / run_all.FUT_TABLES[k]).exists()
+    b1 = run_all.futures(**kw)
+    b2 = run_all.futures(**kw)
+    assert report.clean({k: v for k, v in b1.items() if not k.startswith("_")}) == \
+        report.clean({k: v for k, v in b2.items() if not k.startswith("_")})
+    assert len(logged) == 8 and {r["window"] for r in logged} == {"in_sample_futures", "in_sample_futures_cost2x"}
+    me = b1["month_end_zn"]
+    assert me["metrics"]["n_windows"] > 0 and me["legs"]["by_product"].keys() == {"ZN"}
+    assert b1["supply_calendar"]["legs"]["n_traded"] == 16
+    assert set(b1["supply_calendar"]["legs"]["by_tenor_product"]) <= {f"{t}->{SUPPLY_CONTRACT[t]}" for t in tenors} \
+        | {"DGS10->ZN"}
+    assert b1["data"]["alignment"]["corr_dsettle_neg_dy10_by_lag"]["0"] > 0.99

@@ -13,7 +13,10 @@ Conventions (our choice, fixed before any return was computed):
   strategy's own daily excess returns, T = its number of days. SR0 = sqrt(V) x ((1 - g) PHI^-1(1 - 1/N)
   + g PHI^-1(1 - 1/(N e))), g = Euler-Mascheroni; DSR = PHI((SR - SR0) sqrt(T - 1) / sqrt(1 - skew SR
   + (kurt - 1)/4 SR^2)), SR the daily Sharpe. Our choices, fixed before any Phase 5 result: N counts every row (reruns,
-  placebo and grid cells included), which makes SR0 larger, not smaller.
+  placebo and grid cells included), which makes SR0 larger, not smaller. Phase 4 (team, CLAUDE.md section 15, before
+  any futures result): the headline uses N = distinct variants (distinct config_hash) and V over their Sharpes
+  (src/trial_log.py::trial_counts); the Phase 5 version (N = every row, V over every row) is reported beside it.
+  This function takes N and the trial Sharpes as given.
 """
 from __future__ import annotations
 

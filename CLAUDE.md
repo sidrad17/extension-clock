@@ -83,6 +83,7 @@ extension-clock/
 ├── config/
 │   ├── settings.py              # every parameter (section 6)
 │   ├── flowclock.py             # Flow Clock parameters, as stated in PREREG_FLOWCLOCK.md (section 13)
+│   ├── futures.py               # futures-layer parameters (section 15)
 │   ├── fomc_dates.csv           # FOMC decision dates 1993–2026 (scraped + hand-checked)
 │   └── contract_specs.yaml      # CME tick size, tick value, multiplier per contract, with source URL + date
 ├── data/
@@ -576,8 +577,8 @@ untouched test window).
 - Tests: `tests/test_auction_events.py`, `tests/test_flowclock.py`, and the Flow Clock guard in
   `tests/test_guards.py`.
 
-**Still to do** (pre-registered, not built): the test-window run (Gate 2), the futures version and the volume-based
-capacity estimate (PREREG_FLOWCLOCK.md "What is new", item 4).
+**Still to do** (pre-registered, not built): the test-window run (Gate 2) and the volume-based capacity estimate
+(PREREG_FLOWCLOCK.md "What is new", item 4). The futures version of the supply leg is Phase 4 (section 15).
 
 ---
 
@@ -608,6 +609,68 @@ module docstrings. No definition changes after results.
 - **Deflated Sharpe.** N = every row of the log; V = variance of every Sharpe in the log (both columns).
 - **Flow Clock (descriptive).** Risk rules on and off for the book, supply leg and demand leg; P&L by tenor from the
   legs; decades by slicing the full-sample runs; drawdown table by year.
+
+---
+
+## 15. Phase 4 choices: the futures layer (fixed before any futures result)
+
+Team decisions of Oct 3, 2026 (marked "team"); the rest are our choices, approved by the team at the same time and
+stated in the docstrings of `src/data/databento_futures.py`, `src/futures.py` and `config/futures.py`. Written before
+any futures return was computed. No definition changes after results.
+
+- **Data (team).** Databento GLBX.MDP3, parents ZT/ZF/ZN/TN/ZB/UB.FUT, from the dataset's first day (2010-06-06, for
+  the 60-day DV01 history) to IS_END: `statistics` (settlement), `ohlcv-1d` (volume) and `definition` (one-day
+  snapshots on the first weekday of each month, plus a day-by-day search where a tick size changes between two
+  snapshots). Cost about $1.6, budget guard $5. Raw data stays in `data/cache/` (git-ignored); only derived per-leg
+  and daily P&L tables are committed (`outputs/tables/futures_*`), with no settlement price levels. In-sample only:
+  futures sample 2010-07 to 2024-09.
+- **Settlement.** The last SETTLEMENT_PRICE message per contract and trade date (`ts_ref`); trade dates after IS_END
+  are dropped. Contracts are quarterly outrights keyed by symbol + year (CME reuses security ids). A leg needs its
+  contract's settlement on its entry and exit days, else it is not traded and is counted ("no_settle"; the feed has
+  no settlement for any contract on 2020-02-27 and 2020-06-30, found while checking the data, before any futures
+  return).
+- **Contracts (team).** Month-end calendar-only leg: ZN, as pre-registered (`settings.HEADLINE_FUTURE`); no TN
+  month-end variant. Flow Clock supply leg: 2y and 3y -> ZT; 5y -> ZF; 7y -> ZN; 10y -> TN (ZN before TN exists);
+  20y -> ZB; 30y -> UB (ZB before UB exists).
+- **Roll rule.** First intention day (FID) = 2 business days before the first business day of the delivery month;
+  business days = the bond calendar, extended with plain weekdays after its last day (no data after IS_END is read).
+  At entry E, among the product's quarterly outrights with FID > exit + 5 business days, take the one with the
+  highest volume on the bond day before E (the UTC-day `ohlcv-1d` bar dated E-1, complete before the close of E);
+  ties go to the nearer delivery; if the product has no volume that day, use the bond day before. The contract is
+  held from entry to exit; no leg rolls.
+- **DV01 per contract.** OLS slope (with intercept) of the contract's daily settlement change x $ per point on
+  -Δy (bp) over the 60 bond-day changes ending E-1 (as the sigma rule); pairs with a missing settlement or yield are
+  dropped; at least 50 valid pairs, else the leg is not sized. The month-end leg regresses on DGS10
+  (`FUT_YIELD_MAP`); supply legs on the event tenor's own CMT yield, the yield that sized the leg (ZT on DGS3 for
+  3-year auctions).
+- **Fallback (TN, UB).** "Before TN/UB exists" = before the first entry date at which that product's roll-rule
+  contract can be sized (valid DV01, settlements at entry and exit). Legs entering earlier use ZN / ZB; after it, an
+  unsizable leg is not traded.
+- **Sizing.** DV01 target as in the cash versions (`src/risk.py`; supply legs 0.25% x capital / (σ_tenor √5)), FOMC
+  half size per leg and the drawdown rule with the same triggers; contracts = target / DV01 per contract, rounded
+  half up; 0 -> no trade, counted. Notional = contracts x settlement at entry x $ per point; gross open notional
+  <= 3x capital, legs entering at the same close scaled by one common factor, then rounded down.
+- **P&L and costs (team).** Daily P&L = contracts x Δsettlement x $ per point (the settlement is carried over a bond
+  day without one); excess return = P&L / capital; total return adds DTB3 on capital. Cost = 1 tick + $2 per
+  contract round trip, half at entry and half at exit, with the tick value on that day from the exchange definitions
+  (ZT's tick halves from 2019-01-14); 2x as the stress test. In the supply book the cost is charged on the change in
+  net contracts of each contract at each close, so offsetting legs net out. Unsizable months and legs are counted
+  and skipped.
+- **Trials (team).** 4 rows per run: month-end ZN and supply leg, each at 1x and 2x costs.
+- **Trial count (team).** "Distinct variants tested" = distinct `config_hash` values in `runs/trials.csv`; "total
+  logged runs" = rows. The headline Deflated Sharpe uses N = distinct variants and V = the variance of the
+  distinct configurations' Sharpes (each `config_hash` contributes the Sharpe columns of its latest row; reruns
+  logged so far have identical Sharpes, and `run_all.py` reports any configuration whose Sharpes differ between
+  rows). The Deflated Sharpe is also reported at N = rows with V over every row (the Phase 5 rule). Both counts are
+  reported; `results.json["trials"]["count"]` stays the row count (section 9). Rows are never deleted.
+- **Reproducibility.** `python run_all.py --futures` rebuilds the derived futures tables from the Databento cache
+  (pulling it with a key if missing) and every futures number from them; `python run_all.py` without the flag
+  recomputes every futures number from the committed derived tables, so a keyless run reproduces `results.json`.
+  With neither the tables nor the cache, the futures block is skipped with a message. Futures trials are logged
+  whenever the futures block is computed (GQH_DEV=1 only).
+- **Checks.** Trade-date alignment: ZN settlement changes (highest-volume contract) against DGS10 changes at lags -1,
+  0, +1, and on three known large-move dates (2016-11-09, 2020-03-09, 2022-11-10). Comparisons with the cash legs
+  over the same months are descriptive (cash runs sliced, not rerun).
 
 ---
 

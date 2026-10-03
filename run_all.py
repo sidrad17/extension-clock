@@ -9,9 +9,16 @@ the post-publication sub-sample, the crowding monitor, betas, tails, cash capaci
 It then runs the Flow Clock (PREREG_FLOWCLOCK.md): auction event table, H6a-c, H7, the supply leg, the book,
 Headline 3, the auction event-path figure, and in Phase 5 risk rules on and off, results by tenor and decade and a
 drawdown table by year (results.json["flowclock"]).
-Trials are appended to runs/trials.csv only with GQH_DEV=1; results.json reads the count and the Deflated Sharpe's
-inputs from that log, so a run without GQH_DEV reproduces the committed numbers (src/trial_log.py).
-Dates after IS_END are never read here (rule 2). Scope: in-sample, cash bonds only.
+Phase 4 adds the futures layer (CLAUDE.md 7.9, section 15): the month-end calendar-only leg on ZN and the Flow Clock
+supply leg on the tenor's contract, at 1x and 2x costs (results.json["futures"], in_sample.metrics.futures).
+`--futures` rebuilds the derived futures tables from the Databento cache (pulling it with a key if missing); without
+the flag every futures number is recomputed from the committed derived tables, so a keyless run reproduces
+results.json; with neither, the futures block is skipped with a message.
+Trials are appended to runs/trials.csv only with GQH_DEV=1; results.json reads the counts and the Deflated Sharpe's
+inputs from that log, so a run without GQH_DEV reproduces the committed numbers (src/trial_log.py). The headline
+Deflated Sharpe uses N = distinct variants (distinct config_hash); the one at N = every logged row is reported beside
+it (CLAUDE.md section 15).
+Dates after IS_END are never read here (rule 2). Scope: in-sample.
 """
 from __future__ import annotations
 
@@ -27,10 +34,14 @@ import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
 import config.flowclock as fcs  # noqa: E402
+import config.futures as fus  # noqa: E402
 from config.flowclock import EVENT_PATH, FC_TENORS, POST_LYZ_START, SA_START  # noqa: E402
-from config.settings import (COST_STRESS, ENTRY_OFFSET, EXIT_OFFSET, HEADLINE_TENOR, IS_END, IS_START,  # noqa: E402
-                             PLACEBO_BDAYS, POSTPUB_START, REVERSAL_DAYS, RF_SERIES, TENORS)
+from config.settings import (COST_STRESS, ENTRY_OFFSET, EXIT_OFFSET, FUT_START, HEADLINE_FUTURE,  # noqa: E402
+                             HEADLINE_TENOR, IS_END, IS_START, PLACEBO_BDAYS, POSTPUB_START, REVERSAL_DAYS, RF_SERIES,
+                             TENORS)
 from src import figures, report  # noqa: E402
+from src import futures as fut  # noqa: E402
+from src.data import databento_futures as dbf  # noqa: E402
 from src.auction_events import build_events, in_sample_mask, month_end_supply  # noqa: E402
 from src.backtest import (month_end_windows, placebo_windows, reversal_windows, run_curve_allocated,  # noqa: E402
                           run_strategy, window_returns, window_yield_change_bp)
@@ -56,12 +67,16 @@ from src.stats import deflated_sharpe  # noqa: E402
 from src.tests_h import (event_path_summary, event_paths, h1, h1_addendum, h1_components, h2, h2_panel,  # noqa: E402
                          h3, h4, h5, luck_candidates, luck_test, tercile_labels)
 from src.trial_log import (assert_flowclock_prereg, assert_gate1, git_state, log_trial, log_trials,  # noqa: E402
-                           read_trials, trial_count, trial_row)
+                           read_trials, trial_count, trial_counts, trial_row)
 
-VERSION = "v2 (Phase 5: in-sample, cash bonds; month-end leg and Flow Clock)"
-PENDING = ["oos and flowclock.oos (Gate 2 only)", "in_sample.metrics.futures and the futures layer (Phase 4)",
-           "flowclock futures version and its volume-based capacity (PREREG_FLOWCLOCK.md, item 4)",
+VERSION = "v3 (Phase 4: in-sample; cash and futures; month-end leg and Flow Clock)"
+PENDING = ["oos and flowclock.oos (Gate 2 only)",
+           "flowclock volume-based capacity (PREREG_FLOWCLOCK.md, item 4)",
            "in_sample.tips_replication (Phase 6)", "figure 5: test window added and shaded (Gate 2)"]
+FUT_TABLES = {"legs": "futures_legs_insample.csv", "daily": "futures_daily_insample.csv",
+              "checks": "futures_data_checks_insample.json"}
+FUT_UNITS = {"month_end_zn": "month", "month_end_zn_cost_2x": "month", "supply_calendar": "event",
+             "supply_calendar_cost_2x": "event"}
 FIG_DIR = report.OUTPUTS / "figures"
 RISK_VARIANTS = {"fomc_off": {"fomc_half": False}, "drawdown_off": {"dd_rule": False},
                  "cap_off": {"notional_cap_on": False},
@@ -73,11 +88,19 @@ def step(msg: str, t0: float) -> None:
     print(f"[{time.time() - t0:6.1f}s] {msg}", flush=True)
 
 
-def insample() -> None:
+def insample(futures_mode: str = "tables") -> None:
+    """futures_mode: "rebuild" (--futures: derived futures tables from the Databento cache) or "tables" (committed
+    derived tables; skipped with a message if absent)."""
     t0 = time.time()
     git = git_state()                       # captured before this run writes anything
     verify_or_exit()
     assert_gate1()
+    if futures_mode == "rebuild" and not dbf.have_cache():      # before anything is computed or logged
+        try:
+            dbf.download()
+        except dbf.NoDatabento as e:
+            sys.exit(f"--futures: {e} No Databento cache in data/cache/databento/. Run without --futures to use the "
+                     f"committed derived futures tables; core results are unchanged.")
     step(f"snapshot checksums OK; commit {git['commit']} (dirty={git['dirty']})", t0)
 
     cal = load_calendar(end=IS_END)
@@ -116,6 +139,8 @@ def insample() -> None:
     strat = {"forecast_sized": run_strategy("forecast_sized", win, s_is["w"], **common),
              "calendar_only": run_strategy("calendar_only", win, ones, **common)}
     step(f"cash backtest: {len(win)} windows, {len(days)} NAV days", t0)
+    if futures_mode == "rebuild":           # --futures: derived futures tables first, before any trial is logged
+        rebuild_futures(cal, win, is_months, fomc, rf, y10, t0)
 
     res_h1 = h1(R, Y, s_is["z"])
     res_h1["components"] = h1_components(R, Y, s_is["z_ext"], s_is["z_cash"])
@@ -195,6 +220,10 @@ def insample() -> None:
     fc_block, fc_fig, fc_book = flowclock(cal, is_months, win, R, Y, strat["calendar_only"], common, git, t0,
                                           demand_variants=p5["calendar_variants"], eq_ex=eq_ex, x10=x10)
 
+    # futures layer (Phase 4, CLAUDE.md 7.9 and section 15): logs its trials before the Deflated Sharpe reads the log
+    fut_block = futures(cash_cal=strat["calendar_only"], cash_supply_daily=fc_block["_supply_calendar_daily"],
+                        rf=rf, git=git, t0=t0)
+
     # figure 5: equity curves (in-sample; the test window is added at Gate 2)
     navs = {"forecast-sized": (1.0 + strat["forecast_sized"].daily["excess"]).cumprod(),
             "calendar-only": (1.0 + strat["calendar_only"].daily["excess"]).cumprod(),
@@ -208,18 +237,24 @@ def insample() -> None:
                                                                      sample)}
 
     # Deflated Sharpe: every trial of this run is logged above, so the log is final for this run
-    trials = read_trials()
-    t_sh = pd.concat([trials["sharpe_fc"], trials["sharpe_cal"]]).dropna().to_numpy(float)
-    n_trials = trial_count()
+    tc = trial_counts(read_trials())
     dsr_inputs = {"forecast_sized": strat["forecast_sized"].daily["excess"],
                   "calendar_only": strat["calendar_only"].daily["excess"],
                   "curve_allocated": p5["curve"].daily["excess"],
                   "flowclock_book": fc_book.daily["excess"],
                   "flowclock_supply_calendar": fc_block.pop("_supply_calendar_daily")}
-    dsr = {k: deflated_sharpe(v, t_sh, n_trials) for k, v in dsr_inputs.items()}
-    dsr["note"] = ("Bailey & Lopez de Prado; N = rows in runs/trials.csv, V = variance of every Sharpe in the log "
-                   "(both columns), skew and kurtosis from each strategy's daily excess returns (src/stats.py)")
-    step(f"Deflated Sharpe: N = {n_trials} trials, {len(t_sh)} trial Sharpes", t0)
+    if fut_block is not None:
+        dsr_inputs.update({f"futures_{k}": v for k, v in fut_block.pop("_daily_excess").items()})
+    dsr = {k: deflated_sharpe(v, tc["sharpes_distinct"], tc["distinct_variants"]) for k, v in dsr_inputs.items()}
+    dsr["at_total_logged_runs"] = {k: deflated_sharpe(v, tc["sharpes_all_rows"], tc["total_logged_runs"])
+                                   for k, v in dsr_inputs.items()}
+    dsr["N_distinct_variants"], dsr["N_total_logged_runs"] = tc["distinct_variants"], tc["total_logged_runs"]
+    dsr["note"] = ("Bailey & Lopez de Prado (src/stats.py). Headline (one entry per strategy): N = distinct variants "
+                   "tested (distinct config_hash in runs/trials.csv), V = variance of their Sharpes (both columns, "
+                   "latest row per config_hash). at_total_logged_runs: N = every row, V over every row (the Phase 5 "
+                   "rule). Skew and kurtosis from each strategy's daily excess returns (CLAUDE.md section 15)")
+    step(f"Deflated Sharpe: N = {tc['distinct_variants']} distinct variants ({len(tc['sharpes_distinct'])} trial "
+         f"Sharpes); also at N = {tc['total_logged_runs']} logged runs ({len(tc['sharpes_all_rows'])} Sharpes)", t0)
 
     # results.json v1
     res = report.skeleton()
@@ -247,9 +282,19 @@ def insample() -> None:
                       "terciles": {"path": "outputs/figures/terciles.png", "caption": cap2},
                       **p5["figures"], "auction_event_path": fc_fig}
     res["flowclock"] = fc_block
-    res["trials"] = {"count": trial_count()}
+    if fut_block is not None:
+        ins["metrics"]["futures"] = fut_block.pop("_metrics_1x")
+        res["futures"] = fut_block
+    else:
+        res["futures"] = {"status": "skipped: no committed derived futures tables and no --futures run"}
+    res["trials"] = {"count": trial_count(), "total_logged_runs": tc["total_logged_runs"],
+                     "distinct_variants": tc["distinct_variants"],
+                     "n_configs_with_differing_sharpes": tc["n_configs_with_differing_sharpes"],
+                     "rule": "count = total logged runs = rows of runs/trials.csv (never deleted); distinct variants "
+                             "= distinct config_hash, N of the headline Deflated Sharpe (CLAUDE.md section 15)"}
     report.write_results(res)
-    step(f"wrote outputs/results.json (trials logged so far: {res['trials']['count']})", t0)
+    step(f"wrote outputs/results.json (logged runs {res['trials']['count']}, distinct variants "
+         f"{res['trials']['distinct_variants']})", t0)
 
 
 def _row(base_cfg: dict, git: dict, window: str, extra_cfg: dict, n: int, h: dict | None, s_fc, s_cal,
@@ -702,10 +747,172 @@ def flowclock(cal, is_months, win, R, Y, demand, me_common: dict, git: dict, t0:
     return block, {"path": "outputs/figures/auction_event_path.png", "caption": cap}, b_is["book"]
 
 
+def fut_paths() -> dict:
+    return {k: report.OUTPUTS / "tables" / v for k, v in FUT_TABLES.items()}
+
+
+def futures(*, cash_cal, cash_supply_daily, rf, git: dict, t0: float) -> dict | None:
+    """Futures layer, in-sample (CLAUDE.md 7.9 and section 15; src/futures.py, src/data/databento_futures.py).
+
+    Every futures number is computed from the derived tables (outputs/tables/futures_*), written by
+    rebuild_futures() on a --futures run or committed, so a keyless run reproduces results.json; skipped (None) if
+    they are absent. Logs 4 trials. Returns the results block with private keys _daily_excess (Deflated Sharpe
+    inputs) and _metrics_1x (in_sample.metrics.futures)."""
+    import json
+    paths = fut_paths()
+    if not all(p.exists() for p in paths.values()):
+        print("futures layer skipped: no derived futures tables (outputs/tables/futures_*) and no --futures run; "
+              "core results unchanged.", flush=True)
+        return None
+    leg_t = pd.read_csv(paths["legs"], dtype={c: str for c in ("leg_id", "unit_id", "kind", "tenor", "product", "root",
+                                                                "contract", "status")}, keep_default_na=False,
+                        na_values={c: [""] for c in fut.LEG_TABLE_COLS if c not in (
+                            "leg_id", "unit_id", "kind", "tenor", "product", "root", "contract", "status")},
+                        float_precision="round_trip")
+    day_t = pd.read_csv(paths["daily"], index_col="date", float_precision="round_trip")
+    checks = json.loads(paths["checks"].read_text(encoding="utf-8"))
+    res = fut.from_tables(leg_t, day_t, rf, FUT_UNITS)
+    me1, me2, su1, su2 = (res[k] for k in ("month_end_zn", "month_end_zn_cost_2x", "supply_calendar",
+                                           "supply_calendar_cost_2x"))
+    fdays = me1.daily.index
+    m_me = {k: required_metrics(fut.as_strategy(res[k])) for k in ("month_end_zn", "month_end_zn_cost_2x")}
+    m_su = {k: book_metrics(fut.traded(res[k])) for k in ("supply_calendar", "supply_calendar_cost_2x")}
+
+    # descriptive comparisons with the cash legs over the same days (cash runs sliced, not rerun)
+    cx = cash_cal.daily["excess"].reindex(fdays)
+    t_f, t_c = fut.as_strategy(me1).trades, cash_cal.trades
+    both = t_f.index.intersection(t_c.index)
+    pf, pc = t_f.loc[both, "net_pnl"] / me1.cfg.capital * 100, t_c.loc[both, "net_pnl"] / cash_cal.cfg.capital * 100
+    vs_cash_me = {"cash_calendar_only_slice": slice_metrics(cash_cal.daily, fdays[0], fdays[-1]),
+                  "sharpe_futures_vs_cash": compare_sharpe(me1.daily["excess"], cx, "futures", "cash"),
+                  "corr_daily_excess": float(me1.daily["excess"].corr(cx)),
+                  "windows_both": int(len(both)), "corr_window_net_pnl": float(pf.corr(pc)),
+                  "mean_window_net_pnl_pct": {"futures": float(pf.mean()), "cash": float(pc.mean())},
+                  "note": "cash calendar_only (10-year par bond) is the full in-sample run sliced to the futures "
+                          "days; descriptive"}
+    sx = cash_supply_daily.reindex(fdays)
+    vs_cash_su = {"cash_supply_calendar_slice": slice_metrics(pd.DataFrame({"excess": cash_supply_daily}), fdays[0],
+                                                              fdays[-1]),
+                  "sharpe_futures_vs_cash": compare_sharpe(su1.daily["excess"], sx, "futures", "cash"),
+                  "corr_daily_excess": float(su1.daily["excess"].corr(sx)),
+                  "note": "cash calendar supply leg is the full in-sample run sliced to the futures days; descriptive"}
+    years = period_years(fdays)
+    eq = {}
+    for k, r in res.items():
+        eq[f"nav_total_{k}"] = (1.0 + r.daily["total"]).cumprod()
+        eq[f"nav_excess_{k}"] = (1.0 + r.daily["excess"]).cumprod()
+    report.write_table(pd.DataFrame(eq).rename_axis("date"), "equity_curve_futures_insample.csv")
+    step(f"futures: month-end {HEADLINE_FUTURE} {m_me['month_end_zn']['n_windows']} windows, supply leg "
+         f"{m_su['supply_calendar']['n_legs']} legs traded, {fdays[0].date()}..{fdays[-1].date()}", t0)
+
+    # trial log (rule 7): month-end ZN and supply leg, 1x and 2x costs
+    fu_cfg = {"settings": report.settings_dict(), "futures": {k: getattr(fus, k) for k in dir(fus) if k.isupper()},
+              "flowclock": {k: getattr(fcs, k) for k in dir(fcs) if k.isupper()}}
+    rows = []
+    for key, strat_name, tenor, entry, exit_, unit_n in (
+            ("month_end_zn", "futures_calendar_only", f"{HEADLINE_FUTURE} (DGS10)", f"T-{ENTRY_OFFSET}",
+             f"T+{EXIT_OFFSET}", "n_windows"),
+            ("supply_calendar", "futures_supply_leg", "ZT-UB by auction tenor", "A-5,A", "A,A+5", "n_units")):
+        for suffix, cm in (("", 1.0), ("_cost_2x", COST_STRESS)):
+            mk = m_me if key.startswith("month_end") else m_su
+            mt = mk[key + suffix]
+            rows.append(trial_row({**fu_cfg, "strategy": strat_name, "risk": asdict(RiskConfig(cost_mult=cm))},
+                                  "in_sample_futures" + ("" if cm == 1.0 else "_cost2x"), {
+                "strategy": strat_name, "tenor": tenor, "entry": entry, "exit": exit_, "n": mt[unit_n],
+                "H1_b": "", "H1_lo": "", "H1_hi": "", "sharpe_fc": "", "sharpe_cal": mt["sharpe"],
+                "note": f"run_all Phase 4: futures {strat_name}, {FUT_START[:7]} to {IS_END[:7]}, {cm:g}x costs; "
+                        f"sharpe_cal = this calendar strategy's net Sharpe; no slope (H1_* blank)"}, git=git))
+    n_logged = log_trials(rows)
+    step(f"futures: {len(rows)} trial rows ({n_logged} written to runs/trials.csv)", t0)
+
+    return {
+        "status": "computed from the derived tables outputs/tables/futures_*; raw Databento data stays in "
+                  "data/cache/ (CLAUDE.md section 15)",
+        "sample": [str(fdays[0].date()), str(fdays[-1].date())], "years": years,
+        "rules": "CLAUDE.md section 15; src/futures.py; src/data/databento_futures.py",
+        "contracts": {"month_end": HEADLINE_FUTURE, "supply": dict(fus.SUPPLY_CONTRACT),
+                      "fallback": dict(fus.FALLBACK)},
+        "costs": {"per_contract_round_trip": f"1 tick + ${fut.FUT_COMMISSION_RT:g}", "stress_mult": COST_STRESS},
+        "data": checks,
+        "month_end_zn": {"metrics": m_me["month_end_zn"], "metrics_cost_2x": m_me["month_end_zn_cost_2x"],
+                         "legs": fut.leg_summary(me1), "legs_cost_2x": fut.leg_summary(me2),
+                         "vs_cash_calendar_only": vs_cash_me},
+        "supply_calendar": {"metrics": m_su["supply_calendar"], "metrics_cost_2x": m_su["supply_calendar_cost_2x"],
+                            "legs": fut.leg_summary(su1), "legs_cost_2x": fut.leg_summary(su2),
+                            "by_tenor_pnl": by_tenor(fut.traded(su1), years), "vs_cash_supply_calendar": vs_cash_su},
+        "tables": {k: f"outputs/tables/{v}" for k, v in FUT_TABLES.items()},
+        "_daily_excess": {"month_end_zn": me1.daily["excess"], "supply_calendar": su1.daily["excess"]},
+        "_metrics_1x": {"calendar_only_zn": m_me["month_end_zn"], "flowclock_supply_calendar": m_su["supply_calendar"]},
+    }
+
+
+def rebuild_futures(cal, win, is_months, fomc, rf, y10, t0) -> None:
+    """--futures: the auction events (src/auction_events.py, as flowclock() builds them; no returns) and the futures
+    books -> the derived tables. Runs before any trial of the run is logged, so a failure here logs nothing."""
+    assert_flowclock_prereg()
+    yld = load_frame(FC_TENORS, end=IS_END, index=cal.days, fill=True)
+    ev = build_events(load_auctions(end=IS_END, exclude=None), cal, yld)
+    traded = ev["window_complete"] & ~ev["skipped"]
+    sup_entries = pd.DatetimeIndex(pd.concat([ev.loc[traded, "pre_entry"], ev.loc[traded, "A"]]))
+    fut_months = is_months[is_months >= pd.Period(FUT_START, "M")]
+    _build_futures_tables(cal, win, fut_months, fomc, rf, y10, ev, sup_entries, yld, fut_paths(), t0)
+
+
+def _build_futures_tables(cal, win, fut_months, fomc, rf, y10, ev, sup_entries, yld, paths, t0) -> None:
+    """Settlements, volume and definitions from the Databento cache -> the four futures books -> the derived tables
+    (full precision, no settlement levels) and the data checks."""
+    import json
+
+    import yaml
+    defs = dbf.load_definition_snapshots()
+    pv = dbf.point_values(defs)
+    specs = yaml.safe_load((Path(__file__).resolve().parent / "config" / "contract_specs.yaml").read_text())
+    bad = {r: (pv.get(r), float(v["point_value_usd"])) for r, v in specs.items() if pv.get(r) != v["point_value_usd"]}
+    if bad:
+        raise RuntimeError(f"point values in the definitions differ from config/contract_specs.yaml: {bad}")
+    st, vo = dbf.load_settlements(end=IS_END), dbf.load_volume(end=IS_END)
+    m = fut.build_market(st, vo, defs, cal, pv)
+    step(f"futures data: {len(st)} settlements, {st['contract'].nunique()} contracts, "
+         f"{st['trade_date'].min().date()}..{st['trade_date'].max().date()}", t0)
+    fdays = cal.days[(cal.days >= pd.Timestamp(FUT_START)) & (cal.days <= pd.Timestamp(IS_END))]
+    me_legs = fut.month_end_legs(demand_legs(win.loc[fut_months], cal))
+    sel = in_sample_mask(ev, FUT_START, IS_END) & ~ev["skipped"].astype(bool)
+    su_legs = fut.supply_legs_futures(supply_legs(ev[sel], False))
+    me_prep, su_prep = fut.prepare_legs(me_legs, m, yld), fut.prepare_legs(su_legs, m, yld)
+    common = dict(m=m, yields=yld, rf=rf, fomc_scheduled=fomc, cal=cal, days=fdays)
+    cfg1, cfg2 = RiskConfig(), RiskConfig(cost_mult=COST_STRESS)
+    res = {}
+    for suffix, cfg in (("", cfg1), ("_cost_2x", cfg2)):
+        res["month_end_zn" + suffix] = fut.run_futures_book("month_end_zn" + suffix, me_legs, me_prep, cfg=cfg,
+                                                            demand_per_year=WINDOWS_PER_YEAR, unit="month", **common)
+        res["supply_calendar" + suffix] = fut.run_futures_book("supply_calendar" + suffix, su_legs, su_prep,
+                                                               cfg=cfg, supply_entries=sup_entries, **common)
+    leg_t, day_t = fut.to_tables(res)
+    leg_t.to_csv(paths["legs"], index=False, float_format="%.17g", lineterminator="\n")
+    day_t.to_csv(paths["daily"], float_format="%.17g", lineterminator="\n")
+    cover = st.groupby("root")["trade_date"].agg(["min", "max", "size"])
+    checks = {
+        "source": "Databento GLBX.MDP3: statistics (settlement), ohlcv-1d (volume), definition (monthly snapshots)",
+        "pull_window": {"start": dbf.DATA_START, "end": dbf.PULL_END, "trade_dates_kept_through": IS_END},
+        "n_settlements": int(len(st)), "n_contracts": int(st["contract"].nunique()),
+        "coverage_by_root": {r: {"first": str(c["min"].date()), "last": str(c["max"].date()), "n": int(c["size"])}
+                             for r, c in cover.iterrows()},
+        "n_definition_snapshots": int(defs["snapshot"].nunique()),
+        "point_value_usd": pv, "tick_history": dbf.tick_history(defs),
+        "first_sizable_entry": {"month_end": me_prep.attrs["first_sizable_entry"],
+                                "supply": su_prep.attrs["first_sizable_entry"]},
+        "alignment": fut.alignment_checks(m, y10, fus.ALIGNMENT_DATES),
+        "bond_days_without_any_settlement": fut.settlement_gaps(m, fdays),
+    }
+    paths["checks"].write_text(json.dumps(report.clean(checks), indent=2) + "\n", encoding="utf-8")
+    step(f"futures: derived tables written ({len(leg_t)} leg rows, {len(day_t)} days)", t0)
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("--insample", action="store_true", help="in-sample, cash bonds (default)")
-    p.add_argument("--futures", action="store_true", help="add the Databento futures layer (Phase 4)")
+    p.add_argument("--insample", action="store_true", help="in-sample (default)")
+    p.add_argument("--futures", action="store_true", help="rebuild the derived futures tables from the Databento cache "
+                   "(pulled with DATABENTO_API_KEY if missing); without it they are read from outputs/tables/")
     p.add_argument("--oos", action="store_true", help="test window, once, at Gate 2 only")
     p.add_argument("--refresh", action="store_true", help="refresh the public-data snapshot first")
     a = p.parse_args()
@@ -713,9 +920,7 @@ def main() -> None:
         sys.exit("--oos is not built yet: the test window runs once, at Gate 2 (Phase 7), on a gate2-frozen HEAD.")
     if a.refresh:
         sys.exit("Refresh the snapshot with `python scripts/download_all.py`, review and commit it, then rerun.")
-    insample()
-    if a.futures:
-        print("--futures: the futures layer arrives in Phase 4; core (cash) results above are unchanged.")
+    insample(futures_mode="rebuild" if a.futures else "tables")
 
 
 if __name__ == "__main__":
