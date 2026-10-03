@@ -711,6 +711,30 @@ choices, stated in the docstrings of `src/futures.py`, `src/figures.py`, `src/re
   `config_hash`; the new constants live in `src/futures.py` (NOTIONAL_ROUND) and `config/costs.py`, which no trial
   configuration includes.
 
+**Phase 4c** (team decision of Oct 3, 2026, after the Phase 4b results and before any result below): active-contract
+ADV for futures capacity. No signal, window, sizing, cost or risk rule changes; the holdout guard stays on.
+
+- **Why.** In roll months the Phase 4b ADV is read from the contract the leg will hold, which traded thinly for most
+  of the 20 days, so the 5% cap and the impact term bind on legs of ~100 ZN contracts although ZN trades ~1M
+  contracts a day. This is a measurement error in the capacity model, not a strategy choice.
+- **Variant "active_adv" (team).** For each of the ADV_LOOKBACK (20) bond days ending E-1 (the Phase 4b window), take
+  the volume of the most-traded contract of the leg's root on that day (UTC-day `ohlcv-1d` bars of the quarterly
+  outrights, as the roll rule; 0 if the root has no bar that day); ADV = the mean of those 20 values. The root is the
+  root of the contract the leg holds (ZN / ZB for legs on the TN / UB fallback). Everything else in the capacity
+  model is unchanged: Q = contracts x K / CAPITAL cut to 5% of ADV, square-root impact with the held contract's
+  sigma_price, the capital grid and halving capital, costs not netted across legs, drawdown and cap decisions from
+  the base run. Both futures legs (month-end ZN and supply leg), 1x costs.
+- **Reporting.** The as-written (Phase 4b) capacity numbers stay in `results.json["futures"]["capacity"]` unchanged;
+  the variant goes beside them in `results.json["futures"]["capacity_active_adv"]`, labeled, with the same fields
+  plus, per leg, the number and share of traded legs whose held-contract ADV is below 10% of active_adv. Aggregates
+  only, as Phase 4b: no prices and no per-day or per-contract volume in any committed file. Descriptive, not a trial;
+  the code lives in `src/futures.py` and `config/` is unchanged, so no `config_hash` changes and the run logs its
+  usual rows under the counting rule above.
+- **Also descriptive (nothing changed).** The cash calendar supply leg's Sharpe before costs (daily net excess + that
+  day's cost / capital) on the futures days (2010-07-01 to 2024-09-30), beside the futures supply leg's
+  (`sharpe_gross`), in `results.json["futures"]["supply_calendar"]["vs_cash_supply_calendar"]`. And a read-only
+  listing, from the committed legs table, of ZT supply legs whose DV01 regression R² is below 0.5.
+
 ---
 
 ## Appendix A: `HYPOTHESIS.md` (write verbatim at Phase 0)
