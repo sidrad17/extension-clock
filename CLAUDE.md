@@ -87,7 +87,7 @@ extension-clock/
 │   │                            #   pension_pressure.csv (derived), CHECKSUMS.sha256, VINTAGE.md
 │   └── cache/                   # git-ignored: Databento raw, Ken French raw zip
 ├── src/
-│   ├── data/auctions.py  fred.py  french.py  fomc.py  mspd.py  snapshot.py  databento_futures.py
+│   ├── data/auctions.py  fred.py  french.py  fomc.py  mspd.py  soma.py  snapshot.py  databento_futures.py
 │   ├── calendar.py              # bond-market business days, month-end T, T−k
 │   ├── bonds.py                 # price, modified duration, convexity of a coupon bond; curve interpolation
 │   ├── returns.py               # daily cash-bond returns per tenor from FRED yields; excess over T-bill
@@ -200,6 +200,11 @@ SEC_UA = None  # not used in this project
   *Phase 1 finding:* `total_accepted` = `offering_amt` + `soma_accepted` (1,121 auctions, within 0.003%), so public
   amount = `total_accepted − soma_accepted`. Before April 2008 there is no SOMA field: public amount = `offering_amt`
   (this may also drop foreign-official add-ons, which can't be separated). State both in the note's data section.
+  *STOP 2 change (PREREG_ADDENDUM.md section 3):* from 2003-08 the rebuild deducts NY Fed SOMA holdings by CUSIP
+  (`soma.py`: purchases at issuance and net secondary-market transactions, as the index does); the rule above
+  applies only before 2003-08.
+- **NY Fed SOMA** (`soma.py`): keyless `https://markets.newyorkfed.org/api/soma/tsy/get/notesbonds/asof/<date>.json`,
+  weekly from 2003-07-09. A SOMA date counts at the close of X only if it falls before the bond day preceding X.
 - **FRED** (`fred.py`): keyless CSV `https://fred.stlouisfed.org/graph/fredgraph.csv?id=<SERIES>` for
   DGS1, DGS2, DGS3, DGS5, DGS7, DGS10, DGS20, DGS30, DTB3. Missing values may be `.` or blank. Known gaps: DGS20
   1987-01 to 1993-09; DGS30 2002-02 to 2006-02. Handle explicitly; never forward-fill across a gap longer than 5 days.
@@ -274,7 +279,8 @@ For each month m with rebalance date T (last business day) and entry date E = T�
 - `z_m = (FDD_m − mean(FDD_{<m})) / std(FDD_{<m})`, expanding window, needs ≥ `ZSCORE_MIN_MONTHS`; else NaN → w = 1.
   Also compute the same z for each component (Ext only, cash only) for the component test.
 - `w_m = clip(1 + z_m, 0, 2)`.
-- `surprise_m = Ext_m − mean(Ext for the same calendar month over the prior 3 years)` (Tier 3).
+- `surprise_m = Ext_m − mean(Ext for the same calendar month over the prior 3 years)` (Tier 2 since
+  PREREG_ADDENDUM.md).
 - `pension_m` = equity cumulative return (Ken French Mkt-RF + RF) from the first business day of month m to T−5, minus the
   10-year cash-bond return over the same days; z-scored on past months.
 - Dummies: quarter-end, year-end, refunding month (Feb, May, Aug, Nov), scheduled-FOMC-in-window.
@@ -318,6 +324,8 @@ in proportion to max(ΔC_b, 0); cash version). All daily returns are in % of cap
   none). Also 1,000 random 4-day windows per month that avoid T−4…T+3 and the 15th ± 1 (seeded): distribution of
   mean returns vs the month-end mean.
 - **Post-publication:** every H1/H4 number again on 2019-01 to 2024-09.
+- **Addendum (PREREG_ADDENDUM.md, before any return):** beside H1, (a) H1 with a refunding-month dummy, (b) the
+  slopes within refunding months and within other months, (c) the surprise extension. The headline stays H1.
 - **Deflated Sharpe** (Bailey & López de Prado): N = rows in `runs/trials.csv`; variance of trial Sharpes from
   the log; skew and kurtosis from the strategy's returns.
 
@@ -435,8 +443,8 @@ Done means:
 | 2 | Sat 8–11 AM | `index_rebuild.py`, `validate.py`, `extension_monthly.csv` | **STOP 2**: humans review the validation output; fallback signal if it fails |
 | 3 | Sat 9 AM–1 PM | signals, risk, cash backtest, H1, H4 (in-sample), placebo, required metrics, `results.json` v1 | Tier 1 check, push |
 | 4 | Sat 10 AM–1 PM (parallel) | Databento layer: cost check, pulls, roll rule, DV01, futures P&L | none |
-| 5 | Sat 1–5 PM | H2, H3, H5, risk on/off, sensitivity, post-publication, Deflated Sharpe, capacity, figures | Tier 2 check, push |
-| 6 | Sat 5–8 PM | Tier 3 only if green, in this order: **TIPS-index replication** (7.15), live forecast (7.16), surprise extension, NY Fed SOMA by CUSIP, 1-minute month-end profile | humans decide |
+| 5 | Sat 1–5 PM | H2, H3, H5, addendum analyses (a)–(c), risk on/off, sensitivity, post-publication, Deflated Sharpe, capacity, figures | Tier 2 check, push |
+| 6 | Sat 5–8 PM | Tier 3 only if green, in this order: **TIPS-index replication** (7.15), live forecast (7.16), 1-minute month-end profile (surprise extension and NY Fed SOMA by CUSIP moved earlier: PREREG_ADDENDUM.md) | humans decide |
 | 7 | Sat 8–9 PM | Fresh-clone check in a temp dir with a fresh `.venv`, then humans repeat it on a clean Vultr Ubuntu server (FIRST_PROMPTS.md); fix only reproducibility bugs | **STOP 3**: humans tag `gate2-frozen`; you run `python run_all.py --oos` once |
 | 8 | Sat 9 PM → | Tables for the note from `results.json`; README; nothing that changes logic | Sun 8 AM second fresh-clone check |
 

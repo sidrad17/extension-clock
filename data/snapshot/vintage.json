@@ -103,6 +103,22 @@
       "rows": 9233,
       "source": "Ken French daily factors (derived)",
       "url": "https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/F-F_Research_Data_Factors_daily_CSV.zip"
+    },
+    "soma_asof_dates.csv": {
+      "downloaded_utc": "2026-10-03T07:22:55Z",
+      "first": "2003-07-09",
+      "last": "2026-09-30",
+      "rows": 1213,
+      "source": "NY Fed Markets Data API, SOMA as-of dates",
+      "url": "https://markets.newyorkfed.org/api/soma/asofdates/list.json"
+    },
+    "soma_notesbonds.csv": {
+      "downloaded_utc": "2026-10-03T07:22:55Z",
+      "first": "2003-07-16",
+      "last": "2026-09-23",
+      "rows": 161706,
+      "source": "NY Fed Markets Data API, SOMA notes and bonds by CUSIP",
+      "url": "https://markets.newyorkfed.org/api/soma/tsy/get/notesbonds/asof/{date}.json"
     }
   },
   "notes": {
@@ -110,6 +126,8 @@
     "fomc_dates.csv": "\nAll events on the Fed's FOMC calendar pages from 1993, one row each, with `decision` = 1 for decision dates. Rule\n(details in `src/data/fomc.py`): every scheduled meeting counts on its last day; an unscheduled meeting, conference\ncall or notation vote counts only if it links a policy \"Statement\", dated by that statement; cancelled meetings\nand special meetings without a statement (2000 on) do not count. 1993 conference calls predate statements and do\nnot count. Future scheduled meetings on the calendar page are included.\nUse: only scheduled meetings (`kind == \"scheduled\"`) feed risk rule 2 and the FOMC dummy, because their dates are\npublic about a year ahead; unscheduled actions are not known at entry and appear only in descriptive tables\n(`src/data/fomc.py::load_fomc_dates(scheduled_only=True)`, CLAUDE.md 7.1).\n\nHand-check (2026-10-03, by Claude Code; humans to confirm at STOP 2): 12 decision dates were each confirmed by\nopening the Fed press release linked from the calendar page and finding the same date and the policy action on\nit: 1994-02-04 (first statement), 1994-04-18 (call), 1998-10-15 (call), 2001-01-03 (call, -50bp), 2001-09-17\n(call, -50bp), 2008-01-22 (call on 01-21, -75bp), 2008-10-08 (call on 10-07, coordinated cut), 2008-12-16\n(0-1/4%), 2015-12-16 (liftoff), 2020-03-15 (unscheduled, to 0-1/4%), 2022-03-16 (first hike), 2024-09-18 (-50bp).\n",
     "fred_*.csv": "\nFRED `fredgraph.csv` files as published (blank = missing). Known gaps: DGS20 is blank 1987-01-01 to 1993-09-30.\nDGS30 has values 2002-02-19 to 2006-02-08 in this vintage, but they splice badly at both ends (+17bp vs DGS20\n+3bp on 2002-02-19; -16bp vs -3bp on 2006-02-09), consistent with an extrapolated 30-year rate when no 30-year\nbond was issued; `src/data/fred.py` masks that window by default (the file keeps the published values).\nLoaders never forward-fill a run of more than 5 missing business days.\n",
     "mspd_notes_bonds.csv": "\nMonthly Statement of the Public Debt, table 1 (Fiscal Data `/v1/debt/mspd/mspd_table_1`), marketable Notes and Bonds\nlines only, $ millions as published. Coverage starts 2001-01-31, so the par validation (CLAUDE.md 7.6) runs from\n2001. \"Notes\"/\"Bonds\" exclude TIPS and FRNs. \"Debt held by the public\" includes Federal Reserve holdings.\n",
-    "pension_pressure.csv": "\nDerived from the Ken French daily factors (raw zip kept in git-ignored `data/cache/`, never committed):\n`mkt_total_pct = Mkt-RF + RF` (percent per day), from 1990-01-01. This is the only French input the pension\nsignal uses (CLAUDE.md 7.7); the monthly signal is computed in `src/signals.py`. The file ends at the last CRSP\nupdate in the downloaded vintage.\n"
+    "pension_pressure.csv": "\nDerived from the Ken French daily factors (raw zip kept in git-ignored `data/cache/`, never committed):\n`mkt_total_pct = Mkt-RF + RF` (percent per day), from 1990-01-01. This is the only French input the pension\nsignal uses (CLAUDE.md 7.7); the monthly signal is computed in `src/signals.py`. The file ends at the last CRSP\nupdate in the downloaded vintage.\n",
+    "soma_asof_dates.csv": "\nEvery SOMA as-of date listed by the NY Fed API (`/api/soma/asofdates/list.json`), 2003-07-09 onward, weekly\n(Wednesdays, Tuesday or Thursday in holiday weeks). The rebuild picks the usable date from this list.\n",
+    "soma_notesbonds.csv": "\nNY Fed Markets Data API, SOMA Treasury holdings by CUSIP (notes and bonds; TIPS and FRNs are other types), every\nfield as published (strings, par in dollars, percentOutstanding a fraction). Holdings start 2003-07-09. Only the\nas-of dates the rebuild can use are stored: for each month from 2003-07, the latest date known at T-0 ... T-6\n(a date counts at the close of X only if it falls before the bond business day preceding X, because the release\ncomes the next day and its time is not published; details in `src/data/soma.py`). Used to deduct Fed holdings,\n\"both purchases at issuance and net secondary market transactions\" (index methodology), from 2003-08 onward; earlier\nmonths keep the auction-only deduction (PREREG_ADDENDUM.md).\n"
   }
 }

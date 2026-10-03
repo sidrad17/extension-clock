@@ -4,6 +4,8 @@ Usage: python scripts/validate_rebuild.py
 Runs the in-sample index rebuild from the committed snapshot (no returns), writes the open dataset
 outputs/extension_monthly.csv, the audit trail outputs/tables/rebuild_changes.csv, the validation tables
 outputs/tables/validation_*.csv + validation.md, and the plots outputs/figures/validation_*.png.
+Three rebuilds: the default (Fed holdings by CUSIP from 2003-08), the auction-only Fed deduction it replaced
+("before", the version reviewed at STOP 2) and a diagnostic with the NOW universe's SOMA date at E instead of T(m-1).
 """
 from __future__ import annotations
 
@@ -21,9 +23,12 @@ import pandas as pd  # noqa: E402
 
 from config.settings import IS_END, IS_START  # noqa: E402
 from src import validate as v  # noqa: E402
+from dataclasses import replace  # noqa: E402
+
 from src.calendar import load_calendar  # noqa: E402
 from src.data.auctions import load_auctions  # noqa: E402
 from src.data.mspd import load_mspd  # noqa: E402
+from src.data.soma import load_soma, outstanding_implied  # noqa: E402
 from src.data.snapshot import REPO_ROOT, verify_or_exit  # noqa: E402
 from src.index_rebuild import BUCKETS, OPEN_DATASET_COLUMNS, REBUILD_START, RebuildConfig, config_dict, run_default  # noqa: E402,E501
 
@@ -119,6 +124,8 @@ def main() -> None:
     cfg = RebuildConfig()
 
     monthly, changes = run_default(cfg=cfg)
+    before, _ = run_default(cfg=replace(cfg, soma_by_cusip=False))
+    entry, _ = run_default(cfg=replace(cfg, soma_now_date="entry"))
     monthly.insert(3, "in_sample", pd.PeriodIndex(monthly["month"], freq="M") >= pd.Period(IS_START, "M"))
     monthly[["in_sample"] + OPEN_DATASET_COLUMNS].pipe(
         lambda d: d[["month", "T", "E", "in_sample"] + [c for c in OPEN_DATASET_COLUMNS if c not in
@@ -141,14 +148,47 @@ def main() -> None:
     print("gap by decade (% of MSPD):", json.dumps(by_dec))
     par.to_csv(TABLES / "validation_par_gap.csv", float_format="%.4f", lineterminator="\n")
     md += ["## 1. Rebuilt par vs MSPD", "", v.md_table(par_tab.set_index("date"), "{:.2f}"), "",
-           f"Gap by decade (% of MSPD): `{json.dumps(by_dec)}`", ""]
+           f"Gap by decade (% of MSPD): `{json.dumps(by_dec)}`", "",
+           "Gross par before any Fed deduction, as MSPD counts it (MSPD totals include Fed holdings), so this table "
+           "does not change with the SOMA rule.", ""]
+
+    section("1b. Fed SOMA notes and bonds (NY Fed, by CUSIP) beside the rebuilt par ($ billions, December)")
+    cal_is = load_calendar(end=IS_END)
+    soma = load_soma(end=IS_END)
+    dec = pd.DatetimeIndex(par_tab["date"].astype(str))
+    implied = outstanding_implied(end=IS_END)
+    cov = v.soma_coverage(all_auctions, soma, implied, cal_is, par, dec)
+    print(cov.round(2).to_string())
+    chk = v.soma_outstanding_check(all_auctions, implied, cal_is.days)
+    print("Fed-implied amount outstanding (parValue / percentOutstanding) vs our gross par, per CUSIP and date:",
+          json.dumps(chk))
+    cov.to_csv(TABLES / "validation_soma_coverage.csv", float_format="%.4f", lineterminator="\n")
+    md += ["### 1b. Fed SOMA holdings by CUSIP beside the rebuilt par", "",
+           "NY Fed SOMA notes and bonds on the SOMA date known at the bond month-end; matched = CUSIPs our auction "
+           "records have outstanding then. Unmatched holdings are securities issued before the auction records "
+           "begin (1979-10). `rebuilt_minus_fed_implied_bn`: our gross par on the SOMA date minus the amount outstanding the Fed's "
+           "file implies (parValue / percentOutstanding), over the CUSIPs the Fed holds, beside the MSPD par gap: "
+           "auction records do not show Treasury buybacks (2000-2002, and again from 2024), so bought-back "
+           "issues carry their full auctioned par in the rebuild.", "", v.md_table(cov, "{:.2f}"), "",
+           "Fed-implied amount outstanding (parValue / percentOutstanding) vs our gross par, every stored SOMA date "
+           f"and matched CUSIP: `{json.dumps(chk)}`", ""]
 
     # 2. duration
-    section("2. Rebuilt index modified duration 2015-2024 (humans: add published Treasury-index ETF durations)")
-    dur = v.duration_table(monthly)
-    print(dur.round(3).to_string(index=False))
-    dur.to_csv(TABLES / "validation_duration.csv", index=False, float_format="%.4f", lineterminator="\n")
-    md += ["## 2. Index duration 2015-2024", "", v.md_table(dur.set_index("year"), "{:.3f}"), ""]
+    section("2. Rebuilt index modified duration 2015-2024, auction-only (before) vs SOMA by CUSIP (after)")
+    dur = v.duration_compare(before, monthly)
+    print(dur.round(3).to_string())
+    dur.to_csv(TABLES / "validation_duration.csv", float_format="%.4f", lineterminator="\n")
+    md += ["## 2. Index duration 2015-2024, before vs after the SOMA-by-CUSIP deduction", "",
+           "Humans add the published Treasury-index ETF durations.", "", v.md_table(dur, "{:.3f}"), ""]
+
+    section("2b. Mean Ext and FDD by era, auction-only (before) vs SOMA by CUSIP (after), years of duration")
+    era = v.era_compare(before, monthly, entry)
+    print(era.round(4).T.to_string())
+    era.to_csv(TABLES / "validation_soma_eras.csv", float_format="%.6f", lineterminator="\n")
+    md += ["### 2b. Mean Ext and FDD by era, before vs after", "",
+           "`*_now_at_entry`: diagnostic with the NOW universe's SOMA date known at E(m) instead of T(m-1) (the "
+           "difference is the Fed's net buying during the month, which the default passes to trackers at T).", "",
+           v.md_table(era.T, "{:.4f}"), ""]
 
     # 3. distribution, seasonality, outliers
     section("3a. Distribution of Ext, c_m, cash term, FDD (in-sample months, years of duration)")

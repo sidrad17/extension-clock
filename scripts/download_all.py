@@ -1,7 +1,9 @@
 """Refresh the public-data snapshot and rewrite checksums (CLAUDE.md 7.1).
 
-Usage: python scripts/download_all.py
-Downloads Fiscal Data auctions, FRED yields (CURVE_KNOTS + DTB3), MSPD table 1 and the Ken French daily factors;
+Usage: python scripts/download_all.py [--only soma]
+Downloads Fiscal Data auctions, FRED yields (CURVE_KNOTS + DTB3), MSPD table 1, the Ken French daily factors and
+the NY Fed SOMA holdings by CUSIP (`--only soma` refreshes just the SOMA files; it needs the FRED snapshot for
+the bond calendar);
 writes data/snapshot/*.csv (public data as published; Ken French only as the derived pension_pressure.csv, raw zip
 kept in git-ignored data/cache/), updates vintage.json / VINTAGE.md and rewrites CHECKSUMS.sha256 (which also
 covers config/fomc_dates.csv; refresh that one with scripts/fetch_fomc.py). Normal runs never call this: they
@@ -9,6 +11,7 @@ read the committed snapshot.
 """
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -16,7 +19,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import requests  # noqa: E402
 
-from src.data import auctions, french, fred, mspd  # noqa: E402
+from src.calendar import load_calendar  # noqa: E402
+from src.data import auctions, french, fred, mspd, soma  # noqa: E402
 from src.data.snapshot import (record_vintage, utc_now, verify_checksums, write_checksums,  # noqa: E402
                                write_csv, write_text)
 
@@ -42,6 +46,19 @@ Monthly Statement of the Public Debt, table 1 (Fiscal Data `/v1/debt/mspd/mspd_t
 lines only, $ millions as published. Coverage starts 2001-01-31, so the par validation (CLAUDE.md 7.6) runs from
 2001. "Notes"/"Bonds" exclude TIPS and FRNs. "Debt held by the public" includes Federal Reserve holdings.
 """,
+    "soma_notesbonds.csv": """
+NY Fed Markets Data API, SOMA Treasury holdings by CUSIP (notes and bonds; TIPS and FRNs are other types), every
+field as published (strings, par in dollars, percentOutstanding a fraction). Holdings start 2003-07-09. Only the
+as-of dates the rebuild can use are stored: for each month from 2003-07, the latest date known at T-0 ... T-6
+(a date counts at the close of X only if it falls before the bond business day preceding X, because the release
+comes the next day and its time is not published; details in `src/data/soma.py`). Used to deduct Fed holdings,
+"both purchases at issuance and net secondary market transactions" (index methodology), from 2003-08 onward; earlier
+months keep the auction-only deduction (PREREG_ADDENDUM.md).
+""",
+    "soma_asof_dates.csv": """
+Every SOMA as-of date listed by the NY Fed API (`/api/soma/asofdates/list.json`), 2003-07-09 onward, weekly
+(Wednesdays, Tuesday or Thursday in holiday weeks). The rebuild picks the usable date from this list.
+""",
     "pension_pressure.csv": """
 Derived from the Ken French daily factors (raw zip kept in git-ignored `data/cache/`, never committed):
 `mkt_total_pct = Mkt-RF + RF` (percent per day), from 1990-01-01. This is the only French input the pension
@@ -51,9 +68,35 @@ update in the downloaded vintage.
 }
 
 
+def download_soma(s: requests.Session, entries: dict) -> None:
+    when = utc_now()
+    asof, h = soma.download(s, cal=load_calendar(end=None))
+    write_csv(asof, soma.ASOF_NAME)
+    write_csv(h, soma.SNAPSHOT_NAME)
+    entries[soma.ASOF_NAME] = {"source": "NY Fed Markets Data API, SOMA as-of dates", "url": soma.ASOF_LIST_URL,
+                               "downloaded_utc": when, "rows": int(len(asof)),
+                               "first": asof["asOfDate"].min(), "last": asof["asOfDate"].max()}
+    entries[soma.SNAPSHOT_NAME] = {"source": "NY Fed Markets Data API, SOMA notes and bonds by CUSIP",
+                                   "url": soma.HOLDINGS_URL.format(date="{date}"), "downloaded_utc": when,
+                                   "rows": int(len(h)), "first": h["asOfDate"].min(), "last": h["asOfDate"].max()}
+    print(f"soma: {h['asOfDate'].nunique()} as-of dates, {len(h)} rows, {h['asOfDate'].min()} to "
+          f"{h['asOfDate'].max()} (of {len(asof)} listed)")
+
+
 def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--only", choices=["soma"], help="refresh only this source")
+    args = ap.parse_args()
     s = requests.Session()
     entries = {}
+
+    if args.only == "soma":
+        download_soma(s, entries)
+        record_vintage(entries, {k: NOTES[k] for k in (soma.SNAPSHOT_NAME, soma.ASOF_NAME)})
+        write_checksums()
+        problems = verify_checksums()
+        print("checksums written;", "OK" if not problems else problems)
+        return
 
     when = utc_now()
     raw = auctions.fetch_auctions(s)
@@ -90,6 +133,8 @@ def main() -> None:
                                      "downloaded_utc": when, "rows": int(len(p)),
                                      "first": p["date"].min(), "last": p["date"].max()}
     print(f"pension_pressure (derived): {len(p)} rows, {p['date'].min()} to {p['date'].max()}")
+
+    download_soma(s, entries)
 
     record_vintage(entries, {k: v for k, v in NOTES.items()})
     write_checksums()

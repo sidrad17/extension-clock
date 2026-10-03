@@ -100,7 +100,8 @@ def public_amount(df: pd.DataFrame, deduct_soma: bool = True) -> pd.Series:
       offering_amt (capped at total_accepted). The excess may also contain foreign-official add-ons, which the
       feed cannot separate before 2008. Our choice, flagged for review at STOP 2.
     * soma_accepted covers only the Fed's purchases AT AUCTION. Secondary-market SOMA purchases (QE) are not in
-      this feed; deducting them needs NY Fed SOMA holdings by CUSIP (Tier 3, CLAUDE.md section 10 Phase 6).
+      this feed. From 2003-08 the rebuild deducts NY Fed SOMA holdings by CUSIP instead (src/data/soma.py,
+      src/index_rebuild.py "Fed holdings", PREREG_ADDENDUM.md); this auction-only amount is used before then.
     With deduct_soma=False (sensitivity, settings.DEDUCT_SOMA) the public amount is total_accepted.
     """
     total = df["total_accepted"]

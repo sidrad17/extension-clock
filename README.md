@@ -23,3 +23,8 @@ rule here can be read and checked in the code.
 The hypothesis ([HYPOTHESIS.md](HYPOTHESIS.md)) and every parameter ([config/settings.py](config/settings.py)) were committed
 and tagged `gate1-prereg` (commit `745354e`) at 1:02 AM ET on Oct 3, 2026, before any data download or return analysis.
 Neither file has changed since. To check: `git diff gate1-prereg -- HYPOTHESIS.md config/settings.py` prints nothing.
+
+After reviewing the index rebuild and before computing any return, we added
+[PREREG_ADDENDUM.md](PREREG_ADDENDUM.md) (tag `prereg-addendum`). It adds three analyses reported beside H1, because
+forced demand is concentrated in refunding months, and records the Fed-holdings deduction by CUSIP. The headline
+stays the pre-registered H1.

@@ -142,3 +142,71 @@ def test_rebuild_refuses_test_window_in_dev(monkeypatch, auctions, curve, cal):
     monkeypatch.setattr(tl, "_head_tags", lambda: [])
     with pytest.raises(tl.GateError):
         rebuild(auctions, curve, cal, start="2024-05", end="2024-10-31")
+
+
+# ------------------------------------------------------------------ Fed holdings by CUSIP (PREREG_ADDENDUM.md)
+# Fixture calendar is weekdays only, so E = Mon 2024-05-27 and T(m-1) = Tue 2024-04-30. A SOMA date counts at X
+# only if it falls before the bond day preceding X: at E the latest usable date is Wed 05-22, at T(m-1) Wed 04-24.
+
+def soma_fixture(rows):
+    from src.data.soma import SomaHoldings
+    idx = pd.MultiIndex.from_tuples([(pd.Timestamp(d), c) for d, c, _ in rows], names=["asOfDate", "cusip"])
+    par = pd.Series([v for _, _, v in rows], index=idx, dtype=float).sort_index()
+    asof = pd.DatetimeIndex(sorted({pd.Timestamp(d) for d, _, _ in rows}))
+    return SomaHoldings(asof, par)
+
+
+SOMA_ROWS = [("2024-04-24", "A10Y", 10e9), ("2024-04-24", "B03Y", 5e9),
+             ("2024-05-22", "A10Y", 12e9), ("2024-05-22", "B03Y", 5e9), ("2024-05-22", "C30Y", 1e9),
+             ("2024-05-29", "A10Y", 20e9)]   # published 05-30, after E: must never be used for May
+
+
+def amounts(ch, col):
+    return ch.set_index("cusip")[col].to_dict()
+
+
+def test_soma_by_cusip_deducts_holdings_point_in_time(auctions, curve, cal):
+    soma = soma_fixture(SOMA_ROWS)
+    row, ch = rebuild_month(prepare_tranches(auctions), curve, cal, MONTH, RebuildConfig(), soma)
+    assert row["soma_rule"] == "cusip"
+    assert row["soma_date_now"] == "2024-04-24" and row["soma_date_next"] == "2024-05-22"
+    nxt = amounts(ch, "amount_next")
+    assert nxt["C30Y"] == 25e9                       # 26bn issued 05-15 minus the Fed's 1bn holding on 05-22
+    assert nxt["D07Y"] == 40e9 and nxt["F02Y"] == 60e9   # auctioned after E: offering_amt, no holdings deducted
+    assert amounts(ch, "amount_now")["B03Y"] == 35e9     # NOW at the 04-24 holdings: 40 - 5
+    assert row["par_now_bn"] == pytest.approx((50 - 10) + (40 - 5))   # A: 50 - 10 on 04-24
+    assert row["par_next_bn"] == pytest.approx((50 - 12) + 25 + 40 + 60)   # A: 50 - 12 on 05-22 (not 05-29)
+    assert row["soma_now_bn"] == pytest.approx(15.0) and row["soma_next_bn"] == pytest.approx(13.0)
+
+
+def test_soma_now_date_entry_diagnostic(auctions, curve, cal):
+    soma = soma_fixture(SOMA_ROWS)
+    row, _ = rebuild_month(prepare_tranches(auctions), curve, cal, MONTH, RebuildConfig(soma_now_date="entry"), soma)
+    assert row["soma_date_now"] == "2024-05-22"
+    assert row["par_now_bn"] == pytest.approx((50 - 12) + (40 - 5))
+
+
+def test_soma_pending_add_on_uses_auction_public_amount(auctions, curve, cal):
+    # J: auctioned 05-21 (known at E) but issued 05-29, after the 05-22 SOMA date: the Fed's 2bn add-on is not in
+    # the holdings yet, so the tranche counts at total_accepted - soma_accepted.
+    extra = pd.DataFrame([["J05Y", "Note", "5-Year", "2024-05-21", "2024-05-29", "2029-05-31", "2024-05-16",
+                           "2024-11-30", "30000000000", "32000000000", "2000000000", "4.250000", "No", "No", "No",
+                           "No"]], columns=COLS)
+    from src.data.auctions import clean_auctions, public_amount
+    j = clean_auctions(extra)
+    j = j.assign(public_amount=public_amount(j))
+    tr = prepare_tranches(pd.concat([auctions, j], ignore_index=True))
+    _, ch = rebuild_month(tr, curve, cal, MONTH, RebuildConfig(), soma_fixture(SOMA_ROWS))
+    assert amounts(ch, "amount_next")["J05Y"] == 30e9
+
+
+def test_soma_auction_only_before_2003_08_and_when_off(auctions, curve, cal):
+    from src.index_rebuild import soma_dates
+    soma = soma_fixture(SOMA_ROWS)
+    T_prev, E_ = pd.Timestamp("2024-04-30"), pd.Timestamp("2024-05-27")
+    assert soma_dates(soma, cal, pd.Period("2003-07", "M"), T_prev, E_, RebuildConfig()) == (None, None)
+    assert soma_dates(soma, cal, MONTH, T_prev, E_, RebuildConfig(soma_by_cusip=False)) == (None, None)
+    assert soma_dates(soma, cal, MONTH, T_prev, E_, RebuildConfig(deduct_soma=False)) == (None, None)
+    off, _ = rebuild_month(prepare_tranches(auctions), curve, cal, MONTH, RebuildConfig(soma_by_cusip=False), soma)
+    base, _ = run(auctions, curve, cal)
+    assert off["soma_rule"] == "auction" and off["FDD"] == base["FDD"]
