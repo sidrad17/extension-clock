@@ -123,6 +123,8 @@ extension-clock/
 - Python 3.11+. Pinned: pandas, numpy, scipy, statsmodels, requests, matplotlib, pyyaml, python-dotenv, pytest,
   beautifulsoup4 (FOMC scrape), databento (optional extra; import lazily inside `databento_futures.py`).
 - `GQH_DEV=1` (team `.env` only) turns on the gate guards. Judges won't have it, so their runs are never blocked.
+- Always work in the project `.venv`. Never install into or run from conda `base`: it hides packages missing from
+  `requirements.txt`, which then break a judge's install.
 
 ```bash
 python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
@@ -195,15 +197,23 @@ SEC_UA = None  # not used in this project
   currently_outstanding, closing_time_comp`. Coverage starts 1979.
   **Before using `soma_accepted`:** check on 5 auctions with SOMA add-ons whether `total_accepted` includes them
   (≈ offering + SOMA) or not (≈ offering). Write the finding in a comment and set the public amount accordingly.
+  *Phase 1 finding:* `total_accepted` = `offering_amt` + `soma_accepted` (1,121 auctions, within 0.003%), so public
+  amount = `total_accepted − soma_accepted`. Before April 2008 there is no SOMA field: public amount = `offering_amt`
+  (this may also drop foreign-official add-ons, which can't be separated). State both in the note's data section.
 - **FRED** (`fred.py`): keyless CSV `https://fred.stlouisfed.org/graph/fredgraph.csv?id=<SERIES>` for
   DGS1, DGS2, DGS3, DGS5, DGS7, DGS10, DGS20, DGS30, DTB3. Missing values may be `.` or blank. Known gaps: DGS20
   1987-01 to 1993-09; DGS30 2002-02 to 2006-02. Handle explicitly; never forward-fill across a gap longer than 5 days.
+  *Phase 1 finding:* FRED now fills DGS30 for 2002-02-19 to 2006-02-08, but the values look extrapolated (17bp and 16bp
+  jumps at the edges while DGS20 moves 3bp). The snapshot keeps them; the loader blanks that window by default.
 - **MSPD** (`mspd.py`, validation only): Fiscal Data Monthly Statement of the Public Debt summary table (e.g.
   `/v1/debt/mspd/mspd_table_1`). Inspect fields first, then extract marketable notes and bonds outstanding by month.
 - **Ken French** (`french.py`): `https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/F-F_Research_Data_Factors_daily_CSV.zip`.
   Daily Mkt-RF and RF in percent; header and footer lines to skip. Raw file stays in `data/cache/`; only the derived
   `pension_pressure.csv` goes into the snapshot.
-- **FOMC** (`fomc.py` + `scripts/fetch_fomc.py`): decision dates (last day of each meeting, including unscheduled)
+- **FOMC** (`fomc.py` + `scripts/fetch_fomc.py`): decision dates (last day of each meeting, including unscheduled).
+  **Only scheduled meetings (`kind == "scheduled"`, `decision == 1`) feed risk rule 2 and the FOMC dummy:** their
+  dates are public about a year ahead. Unscheduled actions can't be known at entry E, so using them would be
+  lookahead; they appear only in the worst-windows table. Data:
   from `federalreserve.gov/monetarypolicy/fomccalendars.htm` and `fomchistorical<YEAR>.htm`. Save
   `config/fomc_dates.csv`, then hand-check 10 dates and record that in VINTAGE.md.
 - **Snapshot** (`snapshot.py`): write CSVs plus `CHECKSUMS.sha256` plus `VINTAGE.md` (download timestamps, row counts).
@@ -267,12 +277,12 @@ For each month m with rebalance date T (last business day) and entry date E = T�
 - `surprise_m = Ext_m − mean(Ext for the same calendar month over the prior 3 years)` (Tier 3).
 - `pension_m` = equity cumulative return (Ken French Mkt-RF + RF) from the first business day of month m to T−5, minus the
   10-year cash-bond return over the same days; z-scored on past months.
-- Dummies: quarter-end, year-end, refunding month (Feb, May, Aug, Nov), FOMC-in-window.
+- Dummies: quarter-end, year-end, refunding month (Feb, May, Aug, Nov), scheduled-FOMC-in-window.
 
 ### 7.8 `risk.py`
 - `sigma_bp` = std of daily 10-year yield changes (bp) over the 60 days ending T−5.
 - `DV01_target = RISK_PER_TRADE × CAPITAL / (sigma_bp × sqrt(4))` (dollars per bp), × `w_m` (forecast-sized) or × 1 (calendar-only).
-- Rule 2: × 0.5 if an FOMC decision date is in (E, T]. Rule 5: drawdown rule on the strategy's own NAV, computed
+- Rule 2: × 0.5 if a *scheduled* FOMC decision date is in (E, T] (known at entry; never unscheduled ones). Rule 5: drawdown rule on the strategy's own NAV, computed
   only from past days. Notional cap: 3× capital. Each rule has an on/off toggle; the note reports both.
 
 ### 7.9 `futures.py`
@@ -427,7 +437,7 @@ Done means:
 | 4 | Sat 10 AM–1 PM (parallel) | Databento layer: cost check, pulls, roll rule, DV01, futures P&L | none |
 | 5 | Sat 1–5 PM | H2, H3, H5, risk on/off, sensitivity, post-publication, Deflated Sharpe, capacity, figures | Tier 2 check, push |
 | 6 | Sat 5–8 PM | Tier 3 only if green, in this order: **TIPS-index replication** (7.15), live forecast (7.16), surprise extension, NY Fed SOMA by CUSIP, 1-minute month-end profile | humans decide |
-| 7 | Sat 8–9 PM | Fresh-clone check in a temp dir; fix only reproducibility bugs | **STOP 3**: humans tag `gate2-frozen`; you run `python run_all.py --oos` once |
+| 7 | Sat 8–9 PM | Fresh-clone check in a temp dir with a fresh `.venv`, then humans repeat it on a clean Vultr Ubuntu server (FIRST_PROMPTS.md); fix only reproducibility bugs | **STOP 3**: humans tag `gate2-frozen`; you run `python run_all.py --oos` once |
 | 8 | Sat 9 PM → | Tables for the note from `results.json`; README; nothing that changes logic | Sun 8 AM second fresh-clone check |
 
 **Fallback signal** (if STOP 2 fails): Ext_m ≈ Σ over tranches issued in month m of (amount × duration) /
