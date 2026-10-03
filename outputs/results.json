@@ -1,11 +1,11 @@
 {
   "meta": {
-    "commit": "31e33fb",
+    "commit": "1a0c5f0",
     "dirty": false,
-    "generated_utc": "2026-10-03T21:45:08Z",
+    "generated_utc": "2026-10-03T22:22:11Z",
     "snapshot_checksums_ok": true,
     "settings_hash": "4fc4ac187ed4",
-    "version": "v4 (Phase 4b: in-sample; cash and futures; month-end leg and Flow Clock)",
+    "version": "v4 (Phase 4c: in-sample; cash and futures; month-end leg and Flow Clock)",
     "pending": [
       "oos and flowclock.oos (Gate 2 only)",
       "in_sample.tips_replication (Phase 6)",
@@ -12308,12 +12308,12 @@
           "n_days": 7943,
           "skew": 1.46428,
           "kurtosis": 78.9422,
-          "n_trials": 1556,
-          "n_trial_sharpes": 3074,
-          "var_trial_sharpe_ann": 0.026051,
-          "sr0_ann": 0.54535,
-          "dsr": 0.561615,
-          "z": 0.155065,
+          "n_trials": 2074,
+          "n_trial_sharpes": 4092,
+          "var_trial_sharpe_ann": 0.0256659,
+          "sr0_ann": 0.553848,
+          "dsr": 0.542482,
+          "z": 0.106688,
           "psr_vs_zero": 0.999442
         },
         "calendar_only": {
@@ -12321,12 +12321,12 @@
           "n_days": 7943,
           "skew": 0.99587,
           "kurtosis": 35.8915,
-          "n_trials": 1556,
-          "n_trial_sharpes": 3074,
-          "var_trial_sharpe_ann": 0.026051,
-          "sr0_ann": 0.54535,
-          "dsr": 0.678202,
-          "z": 0.462676,
+          "n_trials": 2074,
+          "n_trial_sharpes": 4092,
+          "var_trial_sharpe_ann": 0.0256659,
+          "sr0_ann": 0.553848,
+          "dsr": 0.660688,
+          "z": 0.414342,
           "psr_vs_zero": 0.999818
         },
         "curve_allocated": {
@@ -12334,12 +12334,12 @@
           "n_days": 7943,
           "skew": 0.857002,
           "kurtosis": 29.398,
-          "n_trials": 1556,
-          "n_trial_sharpes": 3074,
-          "var_trial_sharpe_ann": 0.026051,
-          "sr0_ann": 0.54535,
-          "dsr": 0.791856,
-          "z": 0.812878,
+          "n_trials": 2074,
+          "n_trial_sharpes": 4092,
+          "var_trial_sharpe_ann": 0.0256659,
+          "sr0_ann": 0.553848,
+          "dsr": 0.777743,
+          "z": 0.764592,
           "psr_vs_zero": 0.999954
         },
         "flowclock_book": {
@@ -12347,12 +12347,12 @@
           "n_days": 7943,
           "skew": 0.86319,
           "kurtosis": 15.5533,
-          "n_trials": 1556,
-          "n_trial_sharpes": 3074,
-          "var_trial_sharpe_ann": 0.026051,
-          "sr0_ann": 0.54535,
-          "dsr": 0.967088,
-          "z": 1.83962,
+          "n_trials": 2074,
+          "n_trial_sharpes": 4092,
+          "var_trial_sharpe_ann": 0.0256659,
+          "sr0_ann": 0.553848,
+          "dsr": 0.963355,
+          "z": 1.79102,
           "psr_vs_zero": 1.0
         },
         "flowclock_supply_calendar": {
@@ -12360,12 +12360,12 @@
           "n_days": 7943,
           "skew": 0.473973,
           "kurtosis": 11.3763,
-          "n_trials": 1556,
-          "n_trial_sharpes": 3074,
-          "var_trial_sharpe_ann": 0.026051,
-          "sr0_ann": 0.54535,
-          "dsr": 0.926509,
-          "z": 1.45028,
+          "n_trials": 2074,
+          "n_trial_sharpes": 4092,
+          "var_trial_sharpe_ann": 0.0256659,
+          "sr0_ann": 0.553848,
+          "dsr": 0.919565,
+          "z": 1.40215,
           "psr_vs_zero": 0.999997
         },
         "futures_month_end_zn": {
@@ -12373,12 +12373,12 @@
           "n_days": 3565,
           "skew": 0.422138,
           "kurtosis": 46.7472,
-          "n_trials": 1556,
-          "n_trial_sharpes": 3074,
-          "var_trial_sharpe_ann": 0.026051,
-          "sr0_ann": 0.54535,
-          "dsr": 0.815692,
-          "z": 0.89907,
+          "n_trials": 2074,
+          "n_trial_sharpes": 4092,
+          "var_trial_sharpe_ann": 0.0256659,
+          "sr0_ann": 0.553848,
+          "dsr": 0.80709,
+          "z": 0.867223,
           "psr_vs_zero": 0.998373
         },
         "futures_supply_calendar": {
@@ -12386,17 +12386,17 @@
           "n_days": 3565,
           "skew": 0.479723,
           "kurtosis": 10.1851,
-          "n_trials": 1556,
-          "n_trial_sharpes": 3074,
-          "var_trial_sharpe_ann": 0.026051,
-          "sr0_ann": 0.54535,
-          "dsr": 0.166557,
-          "z": -0.967862,
+          "n_trials": 2074,
+          "n_trial_sharpes": 4092,
+          "var_trial_sharpe_ann": 0.0256659,
+          "sr0_ann": 0.553848,
+          "dsr": 0.158667,
+          "z": -0.99995,
           "psr_vs_zero": 0.862421
         }
       },
       "N_distinct_variants": 518,
-      "N_total_logged_runs": 1556,
+      "N_total_logged_runs": 2074,
       "note": "Bailey & Lopez de Prado (src/stats.py). Headline (one entry per strategy): N = distinct variants tested (distinct config_hash in runs/trials.csv), V = variance of their Sharpes (both columns, latest row per config_hash). at_total_logged_runs: N = every row, V over every row (the Phase 5 rule). Skew and kurtosis from each strategy's daily excess returns (CLAUDE.md section 15)"
     },
     "event_path": {
@@ -17901,8 +17901,8 @@
     }
   },
   "trials": {
-    "count": 1556,
-    "total_logged_runs": 1556,
+    "count": 2074,
+    "total_logged_runs": 2074,
     "distinct_variants": 518,
     "n_configs_with_differing_sharpes": 0,
     "rule": "count = total logged runs = rows of runs/trials.csv (never deleted); distinct variants = distinct config_hash, N of the headline Deflated Sharpe (CLAUDE.md section 15)"
@@ -18677,7 +18677,25 @@
           "seed": 7
         },
         "corr_daily_excess": 0.873159,
-        "note": "cash calendar supply leg is the full in-sample run sliced to the futures days; descriptive"
+        "note": "cash calendar supply leg is the full in-sample run sliced to the futures days; descriptive",
+        "before_costs_same_days": {
+          "sharpe_futures": 0.535959,
+          "sharpe_cash": 1.09738,
+          "sharpe_futures_net": 0.289016,
+          "sharpe_cash_net": 0.618217,
+          "cash_supply_calendar_slice_before_costs": {
+            "period": [
+              "2010-07-01",
+              "2024-09-30"
+            ],
+            "years": 14.2533,
+            "ann_excess_return_pct": 3.88517,
+            "vol_pct": 3.55736,
+            "sharpe": 1.09738,
+            "max_drawdown_excess_pct": 7.7485
+          },
+          "note": "Phase 4c, descriptive (CLAUDE.md section 15): Sharpe of daily net excess + that day's cost / capital over the futures days; cash = the full in-sample run sliced, futures = sharpe_gross of the supply leg (costs netted by contract in the strategy)"
+        }
       },
       "kill_condition_2x_costs": {
         "rule": "PREREG_FLOWCLOCK.md \"What kills it\": \"It disappears at 2x costs.\"",
@@ -19345,6 +19363,263 @@
           ]
         },
         "note": "rough (CLAUDE.md 7.13): sqrt impact per leg side, 5% of 20-day ADV cap, costs not netted across legs, drawdown and cap decisions from the base run; aggregates only (licensed data)"
+      }
+    },
+    "capacity_active_adv": {
+      "month_end_zn": {
+        "sample": [
+          "2010-07-01",
+          "2024-09-30"
+        ],
+        "n_legs": 169,
+        "sharpe_strategy_netted_costs": 0.785267,
+        "sharpe_at_10m": 0.751224,
+        "capital_where_sharpe_halves": 1409040000.0,
+        "halves_within_grid": true,
+        "median_adv_contracts_by_product": {
+          "ZN": 1226290.0
+        },
+        "grid": {
+          "capital": [
+            10000000.0,
+            17782800.0,
+            31622800.0,
+            56234100.0,
+            100000000.0,
+            177828000.0,
+            316228000.0,
+            562341000.0,
+            1000000000.0,
+            1778280000.0,
+            3162280000.0,
+            5623410000.0,
+            10000000000.0
+          ],
+          "sharpe": [
+            0.751224,
+            0.73986,
+            0.724699,
+            0.704471,
+            0.677477,
+            0.641451,
+            0.593368,
+            0.529196,
+            0.443584,
+            0.329479,
+            0.193828,
+            0.0545708,
+            -0.0153457
+          ],
+          "ann_excess_return_pct": [
+            2.44661,
+            2.40828,
+            2.35718,
+            2.28908,
+            2.19834,
+            2.07745,
+            1.91645,
+            1.70213,
+            1.417,
+            1.03796,
+            0.580832,
+            0.109907,
+            -0.0424665
+          ],
+          "mean_participation": [
+            0.000101573,
+            0.000180625,
+            0.000321202,
+            0.000571187,
+            0.00101573,
+            0.00180625,
+            0.00321202,
+            0.00571187,
+            0.0101573,
+            0.0180625,
+            0.0313023,
+            0.0433564,
+            0.049159
+          ],
+          "max_participation": [
+            0.000217083,
+            0.000386033,
+            0.000686475,
+            0.00122074,
+            0.00217083,
+            0.00386033,
+            0.00686475,
+            0.0122074,
+            0.0217083,
+            0.0386033,
+            0.05,
+            0.05,
+            0.05
+          ],
+          "share_legs_capped": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.106509,
+            0.556213,
+            0.91716
+          ],
+          "impact_pct_per_year": [
+            0.112223,
+            0.149652,
+            0.199564,
+            0.266123,
+            0.35488,
+            0.47324,
+            0.631076,
+            0.841554,
+            1.12223,
+            1.49652,
+            1.93769,
+            1.8802,
+            1.35046
+          ]
+        },
+        "note": "Phase 4c variant active_adv (CLAUDE.md section 15): ADV = mean over the 20 bond days ending E-1 of the root's most-traded contract volume; everything else as the as-written curve (futures.capacity): rough (CLAUDE.md 7.13): sqrt impact per leg side, 5% of 20-day ADV cap, costs not netted across legs, drawdown and cap decisions from the base run; aggregates only (licensed data)",
+        "adv_measure": "active_adv",
+        "n_legs_held_adv_below_10pct_of_active": 57,
+        "share_legs_held_adv_below_10pct_of_active": 0.337278
+      },
+      "supply_calendar": {
+        "sample": [
+          "2010-07-01",
+          "2024-09-30"
+        ],
+        "n_legs": 2005,
+        "sharpe_strategy_netted_costs": 0.289016,
+        "sharpe_at_10m": 0.214268,
+        "capital_where_sharpe_halves": 59861600.0,
+        "halves_within_grid": true,
+        "median_adv_contracts_by_product": {
+          "TN": 189919.0,
+          "UB": 100887.0,
+          "ZB": 320878.0,
+          "ZF": 681920.0,
+          "ZN": 1184170.0,
+          "ZT": 263758.0
+        },
+        "grid": {
+          "capital": [
+            10000000.0,
+            17782800.0,
+            31622800.0,
+            56234100.0,
+            100000000.0,
+            177828000.0,
+            316228000.0,
+            562341000.0,
+            1000000000.0,
+            1778280000.0,
+            3162280000.0,
+            5623410000.0,
+            10000000000.0
+          ],
+          "sharpe": [
+            0.214268,
+            0.18974,
+            0.157038,
+            0.113444,
+            0.0553385,
+            -0.022089,
+            -0.125222,
+            -0.260302,
+            -0.399824,
+            -0.581105,
+            -0.760109,
+            -0.959431,
+            -1.17743
+          ],
+          "ann_excess_return_pct": [
+            0.574518,
+            0.503876,
+            0.40975,
+            0.284366,
+            0.117404,
+            -0.104815,
+            -0.40039,
+            -0.785969,
+            -1.17211,
+            -1.62828,
+            -2.0051,
+            -2.35529,
+            -2.55019
+          ],
+          "mean_participation": [
+            0.000124731,
+            0.000221807,
+            0.000394435,
+            0.000701416,
+            0.00124731,
+            0.00221807,
+            0.00394435,
+            0.00693839,
+            0.0110775,
+            0.0159854,
+            0.0220039,
+            0.0290176,
+            0.0367463
+          ],
+          "max_participation": [
+            0.00129919,
+            0.00231032,
+            0.0041084,
+            0.00730588,
+            0.0129919,
+            0.0231032,
+            0.041084,
+            0.05,
+            0.05,
+            0.05,
+            0.05,
+            0.05,
+            0.05
+          ],
+          "share_legs_capped": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.00997506,
+            0.0678304,
+            0.12419,
+            0.224439,
+            0.316708,
+            0.470823
+          ],
+          "impact_pct_per_year": [
+            0.210647,
+            0.280903,
+            0.37459,
+            0.499524,
+            0.666126,
+            0.888293,
+            1.18456,
+            1.56871,
+            1.94111,
+            2.24334,
+            2.50124,
+            2.7234,
+            2.79081
+          ]
+        },
+        "note": "Phase 4c variant active_adv (CLAUDE.md section 15): ADV = mean over the 20 bond days ending E-1 of the root's most-traded contract volume; everything else as the as-written curve (futures.capacity): rough (CLAUDE.md 7.13): sqrt impact per leg side, 5% of 20-day ADV cap, costs not netted across legs, drawdown and cap decisions from the base run; aggregates only (licensed data)",
+        "adv_measure": "active_adv",
+        "n_legs_held_adv_below_10pct_of_active": 337,
+        "share_legs_held_adv_below_10pct_of_active": 0.16808
       }
     },
     "tables": {
