@@ -61,6 +61,13 @@ Phase 4b (team decisions of Oct 3, 2026, after the Phase 4 results and before an
   sum over legs of f x (gross P&L - own cost) / CAPITAL - impact / K. Costs are not netted across legs here, so the
   curve starts from the unnetted Sharpe (reported beside the strategy's netted one); drawdown and cap decisions
   are kept from the base run. Grid and halving capital as src/capacity.py.
+
+Phase 4c (team decision of Oct 3, 2026, after the Phase 4b results and before any of these; CLAUDE.md section 15):
+* Capacity variant "active_adv": in roll months the held contract traded thinly over most of the 20 days, so the
+  as-written ADV understates the market. active_adv = mean over the same ADV_LOOKBACK bond days ending E-1 of the
+  volume of the root's most-traded contract that day (0 if the root has no bar). Everything else as Phase 4b. The
+  as-written curve is unchanged; the variant also reports how many traded legs had held-contract ADV below
+  HELD_ADV_LOW (10%) of active_adv. Aggregates only.
 """
 from __future__ import annotations
 
@@ -71,7 +78,8 @@ import pandas as pd
 
 from config.futures import (DV01_MIN_OBS, FALLBACK, FID_BDAYS_BEFORE, SUPPLY_CONTRACT, VOLUME_LAG_BDAYS,
                             VOLUME_MAX_BACK)
-from config.settings import DV01_LOOKBACK, FUT_COMMISSION_RT, HEADLINE_FUTURE, ROLL_BUFFER_BDAYS
+from config.settings import (ADV_LOOKBACK, DV01_LOOKBACK, FUT_COMMISSION_RT, HEADLINE_FUTURE,
+                             ROLL_BUFFER_BDAYS)
 from src.backtest import StrategyResult
 from src.flowclock import TRAILING_BDAYS, BookResult, _BookDrawdown
 from src.risk import RiskConfig, sigma_bp
@@ -486,24 +494,51 @@ def book_metrics_futures(res: BookResult) -> dict:
 
 # ------------------------------------------------------------------------------------------------ capacity
 
+ADV_MEASURES = ("held", "active")     # Phase 4b as written; Phase 4c variant "active_adv"
+HELD_ADV_LOW = 0.10                   # Phase 4c diagnostic: held-contract ADV below 10% of active_adv
+
+
+def held_adv(m: Market, contract: str, entry: pd.Timestamp, lookback: int = ADV_LOOKBACK) -> float:
+    """Phase 4b ADV: mean daily volume of `contract` over the `lookback` bond days ending E-1 (0 on days without a
+    bar)."""
+    p = int(m.days.get_loc(entry))
+    return float(m.volume[contract].iloc[max(p - lookback, 0):p].mean())
+
+
+def active_adv(m: Market, root: str, entry: pd.Timestamp, lookback: int = ADV_LOOKBACK) -> float:
+    """Phase 4c ADV: mean over the `lookback` bond days ending E-1 of the volume of the root's most-traded contract
+    that day (0 if the root has no bar)."""
+    if not hasattr(m, "_root_max_volume"):
+        m._root_max_volume = {}
+    if root not in m._root_max_volume:
+        m._root_max_volume[root] = m.volume[m.contracts_of(root)].max(axis=1)
+    p = int(m.days.get_loc(entry))
+    return float(m._root_max_volume[root].iloc[max(p - lookback, 0):p].mean())
+
+
 def capacity_curve_futures(res: BookResult, m: Market, capitals: list[float] | None = None,
-                           adv_cap: float | None = None) -> dict:
+                           adv_cap: float | None = None, adv_measure: str = "held") -> dict:
     """Net Sharpe against capital with square-root impact and the ADV participation cap (module docstring, Phase
-    4b). res: an in-memory base run made with record_leg_daily=True. Returns aggregates only (no per-leg volume)."""
-    from config.settings import ADV_CAP, ADV_LOOKBACK
+    4b). res: an in-memory base run made with record_leg_daily=True. adv_measure: "held" (Phase 4b, as written) or
+    "active" (Phase 4c variant active_adv; adds the held-vs-active diagnostic). Returns aggregates only (no per-leg
+    volume)."""
+    from config.settings import ADV_CAP
     from src.capacity import CAPITALS
     from src.stats import sharpe
+    if adv_measure not in ADV_MEASURES:
+        raise ValueError(f"adv_measure must be one of {ADV_MEASURES}, not {adv_measure!r}")
     capitals = capitals or CAPITALS
     adv_cap = ADV_CAP if adv_cap is None else adv_cap
     L = res.legs
     tr = L.index[L["contracts"] > 0].to_numpy()
     days = res.daily.index
     cap0 = res.cfg.capital
-    adv, sig_px = np.full(len(L), np.nan), np.full(len(L), np.nan)
+    adv, adv_held, sig_px = np.full(len(L), np.nan), np.full(len(L), np.nan), np.full(len(L), np.nan)
     for j in tr:
         c, e = L.at[j, "contract"], L.at[j, "entry"]
         p = int(m.days.get_loc(e))
-        adv[j] = float(m.volume[c].iloc[max(p - ADV_LOOKBACK, 0):p].mean())
+        adv_held[j] = held_adv(m, c, e)
+        adv[j] = adv_held[j] if adv_measure == "held" else active_adv(m, L.at[j, "root"], e)
         lv = m.settle[c].iloc[max(p - 1 - DV01_LOOKBACK, 0):p].to_numpy(float)
         ch = np.diff(lv)
         ch = ch[np.isfinite(ch)]
@@ -537,12 +572,21 @@ def capacity_curve_futures(res: BookResult, m: Market, capitals: list[float] | N
     s0 = float(grid["sharpe"].iloc[0])
     k_half = _halving_capital(grid)
     med_adv = {r: float(np.median(adv[tr][L["root"].to_numpy()[tr] == r])) for r in sorted(set(L.loc[tr, "root"]))}
-    return {"sample": [str(days[0].date()), str(days[-1].date())], "n_legs": int(len(tr)),
-            "sharpe_strategy_netted_costs": sharpe(res.daily["excess"]), "sharpe_at_10m": s0,
-            "capital_where_sharpe_halves": k_half, "halves_within_grid": k_half is not None,
-            "median_adv_contracts_by_product": med_adv, "grid": grid.to_dict(orient="list"),
-            "note": "rough (CLAUDE.md 7.13): sqrt impact per leg side, 5% of 20-day ADV cap, costs not netted "
-                    "across legs, drawdown and cap decisions from the base run; aggregates only (licensed data)"}
+    out = {"sample": [str(days[0].date()), str(days[-1].date())], "n_legs": int(len(tr)),
+           "sharpe_strategy_netted_costs": sharpe(res.daily["excess"]), "sharpe_at_10m": s0,
+           "capital_where_sharpe_halves": k_half, "halves_within_grid": k_half is not None,
+           "median_adv_contracts_by_product": med_adv, "grid": grid.to_dict(orient="list"),
+           "note": "rough (CLAUDE.md 7.13): sqrt impact per leg side, 5% of 20-day ADV cap, costs not netted "
+                   "across legs, drawdown and cap decisions from the base run; aggregates only (licensed data)"}
+    if adv_measure == "active":
+        low = adv_held[tr] < HELD_ADV_LOW * adv[tr]
+        out.update({"adv_measure": "active_adv",
+                    "n_legs_held_adv_below_10pct_of_active": int(low.sum()),
+                    "share_legs_held_adv_below_10pct_of_active": float(low.mean()),
+                    "note": "Phase 4c variant active_adv (CLAUDE.md section 15): ADV = mean over the 20 bond days "
+                            "ending E-1 of the root's most-traded contract volume; everything else as the as-written "
+                            "curve (futures.capacity): " + out["note"]})
+    return out
 
 
 def _halving_capital(grid: pd.DataFrame) -> float | None:

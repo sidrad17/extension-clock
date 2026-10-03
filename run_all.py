@@ -70,7 +70,7 @@ from src.tests_h import (event_path_summary, event_paths, h1, h1_addendum, h1_co
 from src.trial_log import (assert_flowclock_prereg, assert_gate1, git_state, log_trial, log_trials,  # noqa: E402
                            read_trials, trial_count, trial_counts, trial_row)
 
-VERSION = "v4 (Phase 4b: in-sample; cash and futures; month-end leg and Flow Clock)"
+VERSION = "v4 (Phase 4c: in-sample; cash and futures; month-end leg and Flow Clock)"
 PENDING = ["oos and flowclock.oos (Gate 2 only)",
            "in_sample.tips_replication (Phase 6)", "figure 5: test window added and shaded (Gate 2)"]
 FUT_TABLES = {"legs": "futures_legs_insample.csv", "daily": "futures_daily_insample.csv",
@@ -225,7 +225,7 @@ def insample(futures_mode: str = "tables") -> None:
 
     # futures layer (Phase 4, CLAUDE.md 7.9 and section 15): logs its trials before the Deflated Sharpe reads the log
     fut_block = futures(cash_cal=strat["calendar_only"], cash_supply_daily=fc_block["_supply_calendar_daily"],
-                        rf=rf, git=git, t0=t0)
+                        cash_supply_gross_daily=fc_block.pop("_supply_calendar_gross_daily"), rf=rf, git=git, t0=t0)
 
     # figure 5: equity curves (in-sample; the test window is added at Gate 2)
     navs = {"forecast-sized": (1.0 + strat["forecast_sized"].daily["excess"]).cumprod(),
@@ -749,7 +749,8 @@ def flowclock(cal, is_months, win, R, Y, demand, me_common: dict, git: dict, t0:
     }
     block = {"prereg": {"file": "PREREG_FLOWCLOCK.md", "tag": "prereg-flowclock", "commit": "8c41154"},
              **blocks, "oos": {"status": "test window runs once, after gate2-frozen"},
-             "_supply_calendar_daily": sup_is.daily["excess"]}
+             "_supply_calendar_daily": sup_is.daily["excess"],
+             "_supply_calendar_gross_daily": sup_is.daily["excess"] + sup_is.daily["cost"] / sup_is.cfg.capital}
     return block, {"path": "outputs/figures/auction_event_path.png", "caption": cap}, b_is["book"]
 
 
@@ -757,12 +758,14 @@ def fut_paths() -> dict:
     return {k: report.OUTPUTS / "tables" / v for k, v in FUT_TABLES.items()}
 
 
-def futures(*, cash_cal, cash_supply_daily, rf, git: dict, t0: float) -> dict | None:
+def futures(*, cash_cal, cash_supply_daily, cash_supply_gross_daily, rf, git: dict, t0: float) -> dict | None:
     """Futures layer, in-sample (CLAUDE.md 7.9 and section 15; src/futures.py, src/data/databento_futures.py).
 
     Every futures number is computed from the derived tables (outputs/tables/futures_*), written by
     rebuild_futures() on a --futures run or committed, so a keyless run reproduces results.json; skipped (None) if
-    they are absent. Logs 12 trials (4 Phase 4 + 8 risk-rule variants, Phase 4b). Returns the results block with
+    they are absent. Logs 12 trials (4 Phase 4 + 8 risk-rule variants, Phase 4b). Phase 4c adds the capacity variant
+    active_adv beside the as-written capacity and the cash supply leg's Sharpe before costs on the futures days
+    (cash_supply_gross_daily: daily net excess + cost / capital), both descriptive. Returns the results block with
     private keys _daily_excess (Deflated Sharpe inputs), _metrics_1x (in_sample.metrics.futures) and _fig (figure 5's
     futures panel)."""
     import json
@@ -803,6 +806,15 @@ def futures(*, cash_cal, cash_supply_daily, rf, git: dict, t0: float) -> dict | 
                   "sharpe_futures_vs_cash": compare_sharpe(su1.daily["excess"], sx, "futures", "cash"),
                   "corr_daily_excess": float(su1.daily["excess"].corr(sx)),
                   "note": "cash calendar supply leg is the full in-sample run sliced to the futures days; descriptive"}
+    cash_gross = slice_metrics(pd.DataFrame({"excess": cash_supply_gross_daily}), fdays[0], fdays[-1])
+    vs_cash_su["before_costs_same_days"] = {
+        "sharpe_futures": m_su["supply_calendar"]["sharpe_gross"], "sharpe_cash": cash_gross["sharpe"],
+        "sharpe_futures_net": m_su["supply_calendar"]["sharpe"],
+        "sharpe_cash_net": vs_cash_su["cash_supply_calendar_slice"]["sharpe"],
+        "cash_supply_calendar_slice_before_costs": cash_gross,
+        "note": "Phase 4c, descriptive (CLAUDE.md section 15): Sharpe of daily net excess + that day's cost / "
+                "capital over the futures days; cash = the full in-sample run sliced, futures = sharpe_gross of the "
+                "supply leg (costs netted by contract in the strategy)"}
     years = period_years(fdays)
     eq = {}
     for k, r in res.items():
@@ -861,6 +873,7 @@ def futures(*, cash_cal, cash_supply_daily, rf, git: dict, t0: float) -> dict | 
     step(f"futures: {len(rows)} trial rows ({n_logged} written to runs/trials.csv)", t0)
 
     capacity = checks.pop("capacity")
+    capacity_active = checks.pop("capacity_active_adv", {"status": "not in the derived tables; rerun with --futures"})
     fig = {"fut_navs": {f"calendar-only, {HEADLINE_FUTURE} futures": (1.0 + me1.daily["excess"]).cumprod(),
                         "calendar-only, cash, same days": (1.0 + cx).cumprod(),
                         "supply leg, futures": (1.0 + su1.daily["excess"]).cumprod(),
@@ -889,6 +902,7 @@ def futures(*, cash_cal, cash_supply_daily, rf, git: dict, t0: float) -> dict | 
                             "kill_condition_2x_costs": kill},
         "risk_rules_on_off": rr,
         "capacity": capacity,
+        "capacity_active_adv": capacity_active,
         "tables": {k: f"outputs/tables/{v}" for k, v in FUT_TABLES.items()},
         "_daily_excess": {"month_end_zn": me1.daily["excess"], "supply_calendar": su1.daily["excess"]},
         "_metrics_1x": {"calendar_only_zn": m_me["month_end_zn"], "flowclock_supply_calendar": m_su["supply_calendar"]},
@@ -911,7 +925,7 @@ def rebuild_futures(cal, win, is_months, fomc, rf, y10, t0) -> None:
 def _build_futures_tables(cal, win, fut_months, fomc, rf, y10, ev, sup_entries, yld, paths, t0) -> None:
     """Settlements, volume and definitions from the Databento cache -> the futures books (Phase 4: 1x and 2x costs;
     Phase 4b: each risk rule off) -> the derived tables (no notional, raw volume, exact cap factor or settlement
-    level; src/futures.py), the capacity aggregates and the data checks."""
+    level; src/futures.py), the capacity aggregates (as written and, Phase 4c, active_adv) and the data checks."""
     import json
 
     import yaml
@@ -945,7 +959,9 @@ def _build_futures_tables(cal, win, fut_months, fomc, rf, y10, ev, sup_entries, 
     leg_t.to_csv(paths["legs"], index=False, lineterminator="\n")       # default float repr: shortest round-trip
     day_t.to_csv(paths["daily"], lineterminator="\n")
     capacity = {k: fut.capacity_curve_futures(res[k], m) for k in ("month_end_zn", "supply_calendar")}
-    step("futures: capacity curves done (aggregates only)", t0)
+    capacity_active = {k: fut.capacity_curve_futures(res[k], m, adv_measure="active")      # Phase 4c variant
+                       for k in ("month_end_zn", "supply_calendar")}
+    step("futures: capacity curves done, as written and active_adv (aggregates only)", t0)
     cover = st.groupby("root")["trade_date"].agg(["min", "max", "size"])
     checks = {
         "source": "Databento GLBX.MDP3: statistics (settlement), ohlcv-1d (volume), definition (monthly snapshots)",
@@ -960,6 +976,7 @@ def _build_futures_tables(cal, win, fut_months, fomc, rf, y10, ev, sup_entries, 
         "alignment": fut.alignment_checks(m, y10, fus.ALIGNMENT_DATES),
         "bond_days_without_any_settlement": fut.settlement_gaps(m, fdays),
         "capacity": capacity,
+        "capacity_active_adv": capacity_active,
     }
     paths["checks"].write_text(json.dumps(report.clean(checks), indent=2) + "\n", encoding="utf-8")
     step(f"futures: derived tables written ({len(leg_t)} leg rows, {len(day_t)} days)", t0)

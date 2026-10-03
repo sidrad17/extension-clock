@@ -347,6 +347,35 @@ def test_capacity_curve_futures():
     assert g["sharpe"][0] >= g["sharpe"][1] >= g["sharpe"][2] >= g["sharpe"][3]
     assert g["share_legs_capped"][-1] == 1.0 and g["max_participation"][-1] == pytest.approx(0.05)
     assert set(cap["median_adv_contracts_by_product"]) == {"ZN"}
+    assert "adv_measure" not in cap                                          # the as-written block is unchanged
+    # Phase 4c variant active_adv: same model, ADV from the root's busiest contract, which is >= the held one's
+    act = fut.capacity_curve_futures(res, MKT, capitals=[1e-6, 1e7, 1e9, 1e11], adv_measure="active")
+    ga = act["grid"]
+    assert act["adv_measure"] == "active_adv" and ga["sharpe"][0] == pytest.approx(g["sharpe"][0], rel=1e-6)
+    assert all(a <= h for a, h in zip(ga["share_legs_capped"], g["share_legs_capped"]))
+    t = res.legs[res.legs["contracts"] > 0]
+    held = np.array([fut.held_adv(MKT, c, e) for c, e in zip(t["contract"], t["entry"])])
+    active = np.array([fut.active_adv(MKT, r, e) for r, e in zip(t["root"], t["entry"])])
+    assert (active >= held).all() and (active > held).any()
+    assert act["n_legs_held_adv_below_10pct_of_active"] == int((held < 0.1 * active).sum())
+    with pytest.raises(ValueError):
+        fut.capacity_curve_futures(res, MKT, adv_measure="front")
+
+
+def test_active_adv_is_the_roots_busiest_contract_over_the_20_days_ending_the_day_before_entry():
+    # Feb month-end: the leg holds June (FID rule); over the 20 days before entry March is the front (volume 1000)
+    entry = CAL.offset(pd.Timestamp("2015-02-27"), -4)
+    assert fut.select_contract(MKT, "ZN", entry, CAL.offset(entry, 7))["contract"] == "ZNM2015"
+    assert fut.held_adv(MKT, "ZNM2015", entry) == 100.0
+    assert fut.active_adv(MKT, "ZN", entry) == 1000.0
+    p = int(MKT.days.get_loc(entry))
+    win = MKT.days[p - 20:p]
+    expect = MKT.volume.loc[win, MKT.contracts_of("ZN")].max(axis=1).mean()
+    assert fut.active_adv(MKT, "ZN", entry) == pytest.approx(expect)
+    m2 = replace(MKT, volume=MKT.volume.copy())                              # E itself and E-21 are not read
+    m2.volume.loc[[entry, MKT.days[p - 21]], MKT.contracts_of("ZN")] = 1e9
+    m2.volume.loc[win[0], MKT.contracts_of("ZN")] = 0.0                     # a day without any bar counts as 0
+    assert fut.active_adv(m2, "ZN", entry) == pytest.approx((expect * 20 - 1000.0) / 20)
 
 
 def test_trial_counts_distinct_and_rows():
@@ -388,7 +417,8 @@ def test_run_all_futures_tables_then_block(monkeypatch, tmp_path):
                        "pre_entry": [CAL.offset(a, -5) for a in A], "post_exit": [CAL.offset(a, 5) for a in A],
                        "w_pre": 1.0, "w_post": 1.0, "skipped": False, "window_complete": True})
     fomc = pd.DatetimeIndex(["2015-06-17"])
-    kw = dict(cash_cal=cash, cash_supply_daily=pd.Series(RNG.normal(0, 0.001, len(nav_cash)), index=nav_cash), rf=RF,
+    sup_net = pd.Series(RNG.normal(0, 0.001, len(nav_cash)), index=nav_cash)
+    kw = dict(cash_cal=cash, cash_supply_daily=sup_net, cash_supply_gross_daily=sup_net + 0.0001, rf=RF,
               git={"commit": "x", "dirty": False}, t0=0.0)
     assert run_all.futures(**kw) is None                                     # no tables yet: skipped
     run_all._build_futures_tables(CAL, win, months[months >= pd.Period("2015-01", "M")], fomc, RF, YLD["DGS10"],
@@ -406,6 +436,12 @@ def test_run_all_futures_tables_then_block(monkeypatch, tmp_path):
     assert set(b1["risk_rules_on_off"]) == {"all_on", *run_all.FUT_RISK_NAMES}
     assert b1["risk_rules_on_off"]["all_off"]["metrics"]["supply_calendar"]["n_drawdown_halved"] == 0
     assert set(b1["capacity"]) == {"month_end_zn", "supply_calendar"} and "capacity" not in b1["data"]
+    assert set(b1["capacity_active_adv"]) == {"month_end_zn", "supply_calendar"}
+    assert "capacity_active_adv" not in b1["data"] and "adv_measure" not in b1["capacity"]["month_end_zn"]
+    assert all(v["adv_measure"] == "active_adv" for v in b1["capacity_active_adv"].values())
+    bc = b1["supply_calendar"]["vs_cash_supply_calendar"]["before_costs_same_days"]
+    assert bc["sharpe_futures"] == b1["supply_calendar"]["metrics"]["sharpe_gross"]
+    assert bc["sharpe_cash"] > bc["sharpe_cash_net"]                         # gross = net + a positive cost
     kill = b1["supply_calendar"]["kill_condition_2x_costs"]
     assert kill["met"] and kill["sharpe_1x"] == b1["supply_calendar"]["metrics"]["sharpe"]
     assert set(b1["_fig"]["fut_navs"]) == set(b1["_fig"]["fut_sharpes"]) and len(b1["_fig"]["fut_navs"]) == 4
