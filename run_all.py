@@ -316,6 +316,7 @@ def month_end_phase5(*, cal, monthly, sig, s_is, is_months, win, R, Y, x10, rf, 
         "mean_weights": {b: float(curve.trades[f"a_{b}"].mean()) for b in BUCKETS},
         "note": "DV01 = calendar-only DV01 split across buckets in proportion to max(fdd_b, 0) (src/backtest.py)"}
     report.write_table(curve.trades.rename_axis("month"), "trades_cash_curve_allocated_insample.csv")
+    report.write_table(equity_curves({"curve_allocated": curve}), "equity_curve_curve_allocated_insample.csv")
     step(f"H2 ({out['H2']['n_obs']} bucket-months) and curve-allocated trade done", t0)
 
     # costs 2x and every risk rule on and off (forecast-sized and calendar-only)

@@ -11,6 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import matplotlib
+import matplotlib.ticker
 import numpy as np
 
 matplotlib.use("Agg")
@@ -151,8 +152,9 @@ def extension_series(months, ext, ref, path: Path, sample: str) -> str:
     ax.set_ylabel("extension at the rebalance (years)", fontsize=9, color=INK)
     ax.set_title(f"Treasury index extension by month, rebuilt from auction records ({sample})", fontsize=10,
                  loc="left", color=INK)
+    ax.set_ylim(top=float(np.nanmax(ext)) * 1.3)                   # headroom so the legend sits clear of the bars
     _axes_style(ax)
-    ax.legend(fontsize=8, frameon=False, loc="upper left")
+    ax.legend(fontsize=8, frameon=False, loc="upper left", ncol=2)
     fig.tight_layout()
     fig.savefig(path, dpi=DPI)
     plt.close(fig)
@@ -177,10 +179,10 @@ def curve_map(xd, yd, h2_res: dict, path: Path, sample: str, n_bins: int = 10) -
     ax.axvline(0, color=MUTED, lw=0.6)
     ax.set_xlabel("bucket's predicted demand (z) minus the month's mean", fontsize=9, color=INK)
     ax.set_ylabel("bucket's yield fall over T-4 to T (bp),\nminus the month's mean", fontsize=9, color=INK)
-    ax.set_title(f"Forced demand across the curve, 5 maturity buckets ({sample})", fontsize=10, loc="left",
+    ax.set_title(f"Forced demand across the curve, 5 maturity buckets\n({sample})", fontsize=10, loc="left",
                  color=INK)
     _axes_style(ax)
-    ax.legend(fontsize=8, frameon=False, loc="upper left")
+    ax.legend(fontsize=8, frameon=False, loc="lower right")
     fig.tight_layout()
     fig.savefig(path, dpi=DPI)
     plt.close(fig)
@@ -200,8 +202,16 @@ def equity_curve(navs: dict, sharpes: dict, path: Path, sample: str) -> str:
     for (name, nav), st in zip(navs.items(), EQ_STYLE):
         ax.plot(nav.index, nav.to_numpy(), color=st["color"], ls=st["ls"], lw=1.4,
                 label=f"{name} (net Sharpe {sharpes[name]:.2f})")
-        ax.text(nav.index[-1], nav.iloc[-1], f" {nav.iloc[-1]:.2f}", fontsize=7, color=INK, va="center")
+    ends = sorted((float(nav.iloc[-1]), nav.index[-1]) for nav in navs.values())
+    y_prev = 0.0
+    for v, d in ends:                                              # end labels, nudged apart (log scale)
+        y = max(v, y_prev * 1.05)
+        ax.text(d, y, f" {v:.2f}", fontsize=7, color=INK, va="center")
+        y_prev = y
     ax.set_yscale("log")
+    ax.yaxis.set_major_locator(matplotlib.ticker.FixedLocator([1.0, 1.5, 2.0, 3.0, 4.0]))
+    ax.yaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: f"{v:g}"))
+    ax.yaxis.set_minor_formatter(matplotlib.ticker.NullFormatter())
     ax.axhline(1.0, color=MUTED, lw=0.6)
     ax.set_ylabel("growth of 1 (excess of T-bill, log scale)", fontsize=9, color=INK)
     ax.set_title(f"Equity curves, cash, net of costs ({sample}; test window not yet run)", fontsize=10, loc="left",
