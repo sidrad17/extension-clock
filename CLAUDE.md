@@ -406,6 +406,8 @@ Done means:
       and test window, trial count), then 3 setup commands, the reproduce command, every source cited, runtime, the
       open dataset described. Judges at comparable events read the code line by line.
 - [ ] Every rule in code has a docstring naming its source (index methodology, CME spec, the brief, or "our choice, pre-registered").
+- [ ] README keeps its "Model" section naming the three parts in these words: signal model, predictive model,
+      sizing model. The note's summary uses the same words, so no judge reads it as "no model".
 - [ ] README keeps its "Pre-registration" section (tag `gate1-prereg`, commit `745354e`, 1:02 AM ET Oct 3, 2026),
       and `git diff gate1-prereg -- HYPOTHESIS.md config/settings.py` prints nothing. The note's hypothesis section
       states the same commit and time.
