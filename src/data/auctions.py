@@ -32,7 +32,7 @@ AUCTIONS_URL = "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/
 SNAPSHOT_NAME = "auctions.csv"
 
 DATE_COLS = ["record_date", "auction_date", "issue_date", "maturity_date", "announcemt_date",
-             "original_issue_date", "first_int_payment_date", "dated_date"]
+             "original_issue_date", "first_int_payment_date", "dated_date", "call_date", "called_date"]
 NUM_COLS = ["offering_amt", "total_accepted", "total_tendered", "int_rate", "high_yield", "soma_accepted",
             "soma_holdings", "soma_tendered", "comp_accepted", "noncomp_accepted", "fima_noncomp_accepted",
             "currently_outstanding", "std_int_payment_per1000"]

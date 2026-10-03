@@ -27,6 +27,9 @@ All events on the Fed's FOMC calendar pages from 1993, one row each, with `decis
 call or notation vote counts only if it links a policy "Statement", dated by that statement; cancelled meetings
 and special meetings without a statement (2000 on) do not count. 1993 conference calls predate statements and do
 not count. Future scheduled meetings on the calendar page are included.
+Use: only scheduled meetings (`kind == "scheduled"`) feed risk rule 2 and the FOMC dummy, because their dates are
+public about a year ahead; unscheduled actions are not known at entry and appear only in descriptive tables
+(`src/data/fomc.py::load_fomc_dates(scheduled_only=True)`, CLAUDE.md 7.1).
 
 Hand-check (2026-10-03, by Claude Code; humans to confirm at STOP 2): 12 decision dates were each confirmed by
 opening the Fed press release linked from the calendar page and finding the same date and the policy action on

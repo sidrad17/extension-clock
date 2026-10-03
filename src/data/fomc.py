@@ -174,10 +174,18 @@ def decide(events: list[dict]) -> pd.DataFrame:
     return df.sort_values(["end_date", "label"], kind="mergesort").reset_index(drop=True)
 
 
-def load_fomc_dates(path: Path = FOMC_CSV, end: str | None = None) -> pd.DatetimeIndex:
-    """Sorted unique FOMC decision dates (announcement days)."""
+def load_fomc_dates(path: Path = FOMC_CSV, end: str | None = None, scheduled_only: bool = True) -> pd.DatetimeIndex:
+    """Sorted unique FOMC decision dates (announcement days).
+
+    scheduled_only=True (default) keeps scheduled meetings only: their dates are public about a year ahead, so they
+    are known at entry E. Unscheduled actions are not, and using them in a signal or risk rule would be lookahead
+    (CLAUDE.md 7.1, 7.7, 7.8); pass False only for descriptive tables such as the worst windows.
+    """
     df = pd.read_csv(path)
-    d = pd.to_datetime(df.loc[df["decision"] == 1, "decision_date"], format="%Y-%m-%d")
+    keep = df["decision"] == 1
+    if scheduled_only:
+        keep &= df["kind"] == "scheduled"
+    d = pd.to_datetime(df.loc[keep, "decision_date"], format="%Y-%m-%d")
     if end is not None:
         d = d[d <= pd.Timestamp(end)]
     return pd.DatetimeIndex(sorted(d.unique()), name="fomc_decision")

@@ -196,6 +196,7 @@ def test_load_fomc_dates(tmp_path):
     df = fomc.decide(fomc.parse_historical(HIST_2008, 2008))
     p = tmp_path / "fomc.csv"
     df.to_csv(p, index=False)
-    d = fomc.load_fomc_dates(p)
+    assert list(fomc.load_fomc_dates(p)) == [pd.Timestamp("2008-01-30")]     # scheduled only (no lookahead)
+    d = fomc.load_fomc_dates(p, scheduled_only=False)
     assert list(d) == list(pd.to_datetime(["2008-01-22", "2008-01-30"]))
-    assert list(fomc.load_fomc_dates(p, end="2008-01-25")) == [pd.Timestamp("2008-01-22")]
+    assert list(fomc.load_fomc_dates(p, end="2008-01-25", scheduled_only=False)) == [pd.Timestamp("2008-01-22")]
