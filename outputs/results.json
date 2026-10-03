@@ -1,0 +1,1070 @@
+{
+  "meta": {
+    "commit": "a512fbf",
+    "dirty": false,
+    "generated_utc": "2026-10-03T08:00:43Z",
+    "snapshot_checksums_ok": true,
+    "settings_hash": "4fc4ac187ed4",
+    "version": "v1 (Phase 3: in-sample, cash bonds)",
+    "pending": [
+      "in_sample.H1_addendum.surprise (Phase 5)",
+      "in_sample.H2, H3, H5 (Phase 5)",
+      "in_sample.metrics.cash.curve_allocated (Phase 5, with H2)",
+      "in_sample.metrics.futures (Phase 4)",
+      "in_sample.risk_rules_on_off, betas, crowding, tails, capacity, deflated_sharpe (Phase 5)",
+      "in_sample.tips_replication (Phase 6)",
+      "post_publication (Phase 5)",
+      "oos (Gate 2 only)",
+      "figures 3-6 (Phase 5)"
+    ],
+    "config_hash_headline": "aed4c3228355"
+  },
+  "validation": {
+    "par_gap_by_decade": {
+      "2000s": {
+        "mean_gap_pct": 2.134,
+        "min": 0.619,
+        "max": 2.634,
+        "months": 108
+      },
+      "2010s": {
+        "mean_gap_pct": 0.597,
+        "min": 0.27,
+        "max": 1.184,
+        "months": 120
+      },
+      "2020s": {
+        "mean_gap_pct": 0.131,
+        "min": 0.067,
+        "max": 0.291,
+        "months": 57
+      }
+    },
+    "duration_recent": {
+      "2015": {
+        "last_month": "2015-12",
+        "D_next_last": 5.79965,
+        "D_now_mean": 5.56439
+      },
+      "2016": {
+        "last_month": "2016-12",
+        "D_next_last": 5.9653,
+        "D_now_mean": 6.01779
+      },
+      "2017": {
+        "last_month": "2017-12",
+        "D_next_last": 6.13865,
+        "D_now_mean": 6.01894
+      },
+      "2018": {
+        "last_month": "2018-12",
+        "D_next_last": 6.07095,
+        "D_now_mean": 5.94155
+      },
+      "2019": {
+        "last_month": "2019-12",
+        "D_next_last": 6.45248,
+        "D_now_mean": 6.24407
+      },
+      "2020": {
+        "last_month": "2020-12",
+        "D_next_last": 7.04603,
+        "D_now_mean": 6.90656
+      },
+      "2021": {
+        "last_month": "2021-12",
+        "D_next_last": 7.04798,
+        "D_now_mean": 6.80246
+      },
+      "2022": {
+        "last_month": "2022-12",
+        "D_next_last": 6.18142,
+        "D_now_mean": 6.35398
+      },
+      "2023": {
+        "last_month": "2023-12",
+        "D_next_last": 6.18236,
+        "D_now_mean": 6.03554
+      },
+      "2024": {
+        "last_month": "2024-09",
+        "D_next_last": 6.10475,
+        "D_now_mean": 5.9481
+      }
+    },
+    "extension_stats": {
+      "Ext": {
+        "count": 381.0,
+        "mean": 0.0644605,
+        "std": 0.038265,
+        "min": -0.0288606,
+        "5%": 0.00644318,
+        "25%": 0.0358035,
+        "50%": 0.0626578,
+        "75%": 0.0900972,
+        "95%": 0.131121,
+        "max": 0.17407,
+        "share_negative": 0.023622
+      },
+      "c_m": {
+        "count": 381.0,
+        "mean": 0.0033008,
+        "std": 0.00372254,
+        "min": 0.000203192,
+        "5%": 0.000547583,
+        "25%": 0.000798432,
+        "50%": 0.00138379,
+        "75%": 0.00374307,
+        "95%": 0.0118984,
+        "max": 0.0142477,
+        "share_negative": 0.0
+      },
+      "cash_term": {
+        "count": 381.0,
+        "mean": 0.0182896,
+        "std": 0.0206213,
+        "min": 0.00118925,
+        "5%": 0.00340652,
+        "25%": 0.00466904,
+        "50%": 0.00751806,
+        "75%": 0.0228568,
+        "95%": 0.0638783,
+        "max": 0.0919311,
+        "share_negative": 0.0
+      },
+      "FDD": {
+        "count": 381.0,
+        "mean": 0.0827501,
+        "std": 0.0528961,
+        "min": -0.0241852,
+        "5%": 0.010454,
+        "25%": 0.0478241,
+        "50%": 0.0708573,
+        "75%": 0.115734,
+        "95%": 0.190446,
+        "max": 0.244407,
+        "share_negative": 0.0104987
+      }
+    },
+    "seasonality_mean_by_calendar_month": {
+      "1": {
+        "Ext": 0.0460488,
+        "c_m": 0.00136531,
+        "FDD": 0.0533821,
+        "n_adds": 2.8125,
+        "n_removes": 2.71875
+      },
+      "2": {
+        "Ext": 0.103663,
+        "c_m": 0.00804273,
+        "FDD": 0.148513,
+        "n_adds": 5.0625,
+        "n_removes": 4.28125
+      },
+      "3": {
+        "Ext": 0.0453828,
+        "c_m": 0.00103444,
+        "FDD": 0.0510635,
+        "n_adds": 2.6875,
+        "n_removes": 2.5
+      },
+      "4": {
+        "Ext": 0.0429073,
+        "c_m": 0.00138777,
+        "FDD": 0.0503444,
+        "n_adds": 2.875,
+        "n_removes": 2.6875
+      },
+      "5": {
+        "Ext": 0.094158,
+        "c_m": 0.00706228,
+        "FDD": 0.133212,
+        "n_adds": 4.78125,
+        "n_removes": 4.3125
+      },
+      "6": {
+        "Ext": 0.0478452,
+        "c_m": 0.00105472,
+        "FDD": 0.0536255,
+        "n_adds": 2.78125,
+        "n_removes": 2.5625
+      },
+      "7": {
+        "Ext": 0.0467652,
+        "c_m": 0.00133974,
+        "FDD": 0.0539604,
+        "n_adds": 2.84375,
+        "n_removes": 2.71875
+      },
+      "8": {
+        "Ext": 0.106642,
+        "c_m": 0.00795002,
+        "FDD": 0.151074,
+        "n_adds": 5.03125,
+        "n_removes": 4.25
+      },
+      "9": {
+        "Ext": 0.0474237,
+        "c_m": 0.00102802,
+        "FDD": 0.0531144,
+        "n_adds": 2.75,
+        "n_removes": 2.5
+      },
+      "10": {
+        "Ext": 0.0478796,
+        "c_m": 0.00134415,
+        "FDD": 0.0551327,
+        "n_adds": 2.70968,
+        "n_removes": 2.58065
+      },
+      "11": {
+        "Ext": 0.101267,
+        "c_m": 0.00694798,
+        "FDD": 0.140215,
+        "n_adds": 4.6129,
+        "n_removes": 4.09677
+      },
+      "12": {
+        "Ext": 0.043522,
+        "c_m": 0.00103452,
+        "FDD": 0.0492498,
+        "n_adds": 2.74194,
+        "n_removes": 2.48387
+      }
+    },
+    "skipped_tranches": 8
+  },
+  "in_sample": {
+    "H1": {
+      "b": 0.0107514,
+      "se": 0.061696,
+      "t": 0.174265,
+      "ci": [
+        -0.11017,
+        0.131673
+      ],
+      "n": 381,
+      "a": 0.194053,
+      "yield_bp": {
+        "b": 0.139052,
+        "se": 0.786752,
+        "t": 0.176741,
+        "ci": [
+          -1.40295,
+          1.68106
+        ],
+        "n": 381
+      },
+      "mean_R": {
+        "n": 381,
+        "b": 0.194449,
+        "se": 0.0434044,
+        "t": 4.47994,
+        "ci": [
+          0.109378,
+          0.279521
+        ]
+      },
+      "mean_neg_dy_bp": {
+        "n": 381,
+        "b": 2.01312,
+        "se": 0.52829,
+        "t": 3.81064,
+        "ci": [
+          0.977693,
+          3.04855
+        ]
+      },
+      "terciles": {
+        "low": {
+          "mean": 0.136198,
+          "ci": [
+            -0.0235052,
+            0.296847
+          ],
+          "n": 127,
+          "z_min": -1.66992,
+          "z_max": -0.345981
+        },
+        "mid": {
+          "mean": 0.232824,
+          "ci": [
+            0.0972525,
+            0.365051
+          ],
+          "n": 127,
+          "z_min": -0.34493,
+          "z_max": 0.190744
+        },
+        "high": {
+          "mean": 0.214326,
+          "ci": [
+            0.0566775,
+            0.372334
+          ],
+          "n": 127,
+          "z_min": 0.194561,
+          "z_max": 2.51432
+        }
+      },
+      "terciles_yield_bp": {
+        "low": {
+          "mean": 1.32283,
+          "ci": [
+            -0.692913,
+            3.35433
+          ],
+          "n": 127
+        },
+        "mid": {
+          "mean": 2.51181,
+          "ci": [
+            0.92126,
+            4.07874
+          ],
+          "n": 127
+        },
+        "high": {
+          "mean": 2.20472,
+          "ci": [
+            0.259843,
+            4.13406
+          ],
+          "n": 127
+        }
+      },
+      "high_minus_low": 0.078128,
+      "sample": [
+        "1993-01",
+        "2024-09"
+      ],
+      "units": "R_m: 10-year window excess return, %; z: sd of FDD (past months only); yield_bp: -dy, bp",
+      "components": {
+        "ext": {
+          "b": -0.0614868,
+          "se": 0.071344,
+          "t": -0.861836,
+          "ci": [
+            -0.201318,
+            0.0783449
+          ]
+        },
+        "cash": {
+          "b": 0.0865162,
+          "se": 0.0817118,
+          "t": 1.0588,
+          "ci": [
+            -0.073636,
+            0.246668
+          ]
+        },
+        "n": 381,
+        "yield_bp": {
+          "ext": {
+            "b": -0.821515,
+            "se": 0.876815,
+            "t": -0.936931,
+            "ci": [
+              -2.54004,
+              0.897011
+            ]
+          },
+          "cash": {
+            "b": 1.15562,
+            "se": 1.02745,
+            "t": 1.12475,
+            "ci": [
+              -0.858144,
+              3.16938
+            ]
+          }
+        },
+        "corr_z_ext_z_cash": 0.681863
+      }
+    },
+    "H1_addendum": {
+      "refunding_dummy": {
+        "b": {
+          "b": -0.0694781,
+          "se": 0.103363,
+          "t": -0.672173,
+          "ci": [
+            -0.272067,
+            0.133111
+          ]
+        },
+        "c": {
+          "b": 0.169453,
+          "se": 0.167699,
+          "t": 1.01046,
+          "ci": [
+            -0.15923,
+            0.498136
+          ]
+        },
+        "n": 381
+      },
+      "within_refunding": {
+        "b": -0.245741,
+        "se": 0.155826,
+        "t": -1.57702,
+        "ci": [
+          -0.551154,
+          0.0596718
+        ],
+        "n": 127
+      },
+      "within_other": {
+        "b": 0.125014,
+        "se": 0.139361,
+        "t": 0.897054,
+        "ci": [
+          -0.148128,
+          0.398157
+        ],
+        "n": 254
+      },
+      "yield_bp": {
+        "refunding_dummy": {
+          "b": {
+            "b": -0.707546,
+            "se": 1.29144,
+            "t": -0.547873,
+            "ci": [
+              -3.23873,
+              1.82364
+            ]
+          },
+          "c": {
+            "b": 1.7881,
+            "se": 2.0014,
+            "t": 0.893423,
+            "ci": [
+              -2.13458,
+              5.71078
+            ]
+          },
+          "n": 381
+        },
+        "within_refunding": {
+          "b": -2.76456,
+          "se": 1.97163,
+          "t": -1.40217,
+          "ci": [
+            -6.62889,
+            1.09976
+          ],
+          "n": 127
+        },
+        "within_other": {
+          "b": 1.56221,
+          "se": 1.69069,
+          "t": 0.924011,
+          "ci": [
+            -1.75147,
+            4.8759
+          ],
+          "n": 254
+        }
+      },
+      "surprise": {
+        "status": "Phase 5 (PREREG_ADDENDUM.md (c))"
+      }
+    },
+    "tips_replication": {},
+    "H2": {
+      "coef": null,
+      "ci": [
+        null,
+        null
+      ],
+      "n_obs": 0
+    },
+    "H3": {
+      "coef": null,
+      "ci": [
+        null,
+        null
+      ]
+    },
+    "H4": {
+      "sharpe_fc": 0.57259,
+      "sharpe_cal": 0.626699,
+      "diff": -0.0541097,
+      "ci": [
+        -0.218061,
+        0.114356
+      ],
+      "p_le_0": 0.7345,
+      "n_months": 381,
+      "n_boot": 10000,
+      "seed": 7
+    },
+    "H5": {},
+    "placebo": {
+      "window": "business days 4-7 of month m+1 (enter close of bday 3, exit close of bday 7), paired with z_m",
+      "H1": {
+        "b": -0.0836352,
+        "se": 0.0631476,
+        "t": -1.32444,
+        "ci": [
+          -0.207402,
+          0.0401318
+        ],
+        "n": 380,
+        "a": -0.0392822,
+        "yield_bp": {
+          "b": -0.95846,
+          "se": 0.79533,
+          "t": -1.20511,
+          "ci": [
+            -2.51728,
+            0.600358
+          ],
+          "n": 380
+        },
+        "mean_R": {
+          "n": 380,
+          "b": -0.0424642,
+          "se": 0.0472024,
+          "t": -0.899621,
+          "ci": [
+            -0.134979,
+            0.0500507
+          ]
+        },
+        "mean_neg_dy_bp": {
+          "n": 380,
+          "b": -0.8,
+          "se": 0.568618,
+          "t": -1.40692,
+          "ci": [
+            -1.91447,
+            0.314472
+          ]
+        },
+        "terciles": {
+          "low": {
+            "mean": 0.0766382,
+            "ci": [
+              -0.0917629,
+              0.244243
+            ],
+            "n": 127,
+            "z_min": -1.66992,
+            "z_max": -0.34493
+          },
+          "mid": {
+            "mean": -0.0298903,
+            "ci": [
+              -0.201382,
+              0.141563
+            ],
+            "n": 126,
+            "z_min": -0.332346,
+            "z_max": 0.190744
+          },
+          "high": {
+            "mean": -0.174042,
+            "ci": [
+              -0.328839,
+              -0.0218395
+            ],
+            "n": 127,
+            "z_min": 0.194561,
+            "z_max": 2.51432
+          }
+        },
+        "terciles_yield_bp": {
+          "low": {
+            "mean": 0.511811,
+            "ci": [
+              -1.62205,
+              2.62205
+            ],
+            "n": 127
+          },
+          "mid": {
+            "mean": -0.547619,
+            "ci": [
+              -2.55575,
+              1.46825
+            ],
+            "n": 126
+          },
+          "high": {
+            "mean": -2.3622,
+            "ci": [
+              -4.25984,
+              -0.511811
+            ],
+            "n": 127
+          }
+        },
+        "high_minus_low": -0.25068,
+        "sample": [
+          "1993-01",
+          "2024-08"
+        ],
+        "units": "R_m: 10-year window excess return, %; z: sd of FDD (past months only); yield_bp: -dy, bp"
+      },
+      "components": {
+        "ext": {
+          "b": -0.153872,
+          "se": 0.0795902,
+          "t": -1.93331,
+          "ci": [
+            -0.309866,
+            0.00212179
+          ]
+        },
+        "cash": {
+          "b": 0.0937165,
+          "se": 0.104014,
+          "t": 0.900995,
+          "ci": [
+            -0.110148,
+            0.297581
+          ]
+        },
+        "n": 380,
+        "yield_bp": {
+          "ext": {
+            "b": -1.63908,
+            "se": 0.967776,
+            "t": -1.69365,
+            "ci": [
+              -3.53588,
+              0.257728
+            ]
+          },
+          "cash": {
+            "b": 0.918797,
+            "se": 1.28452,
+            "t": 0.715286,
+            "ci": [
+              -1.59881,
+              3.4364
+            ]
+          }
+        },
+        "corr_z_ext_z_cash": 0.681809
+      },
+      "H4": {
+        "sharpe_fc": -0.449417,
+        "sharpe_cal": -0.321673,
+        "diff": -0.127744,
+        "ci": [
+          -0.337431,
+          0.0717366
+        ],
+        "p_le_0": 0.8946,
+        "n_months": 381,
+        "n_boot": 10000,
+        "seed": 7
+      },
+      "metrics": {
+        "forecast_sized": {
+          "period": [
+            "1993-01-04",
+            "2024-09-30"
+          ],
+          "years": 31.7399,
+          "ann_return_pct": 1.22296,
+          "ann_excess_return_pct": -1.17672,
+          "vol_pct": 2.57804,
+          "sharpe": -0.449417,
+          "sharpe_gross": -0.33223,
+          "max_drawdown_pct": 19.163,
+          "max_drawdown_excess_pct": 33.9062,
+          "turnover_x_per_year": 14.5571,
+          "hit_rate": 0.413158,
+          "worst_window": {
+            "month": "1995-05",
+            "net_pnl_pct": -5.97688
+          },
+          "n_windows": 380,
+          "mean_window_net_pnl_pct": -0.0961037,
+          "cost_pct_per_year": 0.300767,
+          "mean_notional_x_capital": 0.607949,
+          "n_notional_capped": 1,
+          "n_fomc_halved": 20,
+          "n_drawdown_halved": 350
+        },
+        "calendar_only": {
+          "period": [
+            "1993-01-04",
+            "2024-09-30"
+          ],
+          "years": 31.7399,
+          "ann_return_pct": 1.69931,
+          "ann_excess_return_pct": -0.711664,
+          "vol_pct": 2.16294,
+          "sharpe": -0.321673,
+          "sharpe_gross": -0.176985,
+          "max_drawdown_pct": 13.9398,
+          "max_drawdown_excess_pct": 27.2407,
+          "turnover_x_per_year": 15.2265,
+          "hit_rate": 0.468421,
+          "worst_window": {
+            "month": "1996-02",
+            "net_pnl_pct": -3.10056
+          },
+          "n_windows": 380,
+          "mean_window_net_pnl_pct": -0.0577112,
+          "cost_pct_per_year": 0.310962,
+          "mean_notional_x_capital": 0.635904,
+          "n_notional_capped": 0,
+          "n_fomc_halved": 20,
+          "n_drawdown_halved": 342
+        }
+      }
+    },
+    "random_windows": {
+      "label": "luck test",
+      "n_draws": 1000,
+      "seed": 7,
+      "n_months": 381,
+      "months_without_candidate": 0,
+      "mean_candidates_per_month": 4.89501,
+      "month_end_mean_pct": 0.194449,
+      "random_mean_pct": -0.0159941,
+      "random_sd_pct": 0.0386485,
+      "random_p2_5_pct": -0.0892268,
+      "random_p50_pct": -0.0165355,
+      "random_p97_5_pct": 0.0621329,
+      "share_random_ge_month_end": 0.0
+    },
+    "metrics": {
+      "cash": {
+        "forecast_sized": {
+          "period": [
+            "1993-01-04",
+            "2024-09-30"
+          ],
+          "years": 31.7399,
+          "ann_return_pct": 4.49921,
+          "ann_excess_return_pct": 2.02206,
+          "vol_pct": 3.63594,
+          "sharpe": 0.57259,
+          "sharpe_gross": 0.701662,
+          "max_drawdown_pct": 7.69621,
+          "max_drawdown_excess_pct": 10.6563,
+          "turnover_x_per_year": 22.5935,
+          "hit_rate": 0.538058,
+          "worst_window": {
+            "month": "1999-02",
+            "net_pnl_pct": -4.73941
+          },
+          "n_windows": 381,
+          "mean_window_net_pnl_pct": 0.172234,
+          "cost_pct_per_year": 0.472435,
+          "mean_notional_x_capital": 0.941098,
+          "n_notional_capped": 6,
+          "n_fomc_halved": 70,
+          "n_drawdown_halved": 126
+        },
+        "calendar_only": {
+          "period": [
+            "1993-01-04",
+            "2024-09-30"
+          ],
+          "years": 31.7399,
+          "ann_return_pct": 4.28354,
+          "ann_excess_return_pct": 1.81146,
+          "vol_pct": 2.95425,
+          "sharpe": 0.626699,
+          "sharpe_gross": 0.781985,
+          "max_drawdown_pct": 5.46161,
+          "max_drawdown_excess_pct": 8.00769,
+          "turnover_x_per_year": 22.1379,
+          "hit_rate": 0.574803,
+          "worst_window": {
+            "month": "2011-06",
+            "net_pnl_pct": -3.41387
+          },
+          "n_windows": 381,
+          "mean_window_net_pnl_pct": 0.153167,
+          "cost_pct_per_year": 0.459133,
+          "mean_notional_x_capital": 0.922119,
+          "n_notional_capped": 0,
+          "n_fomc_halved": 70,
+          "n_drawdown_halved": 107
+        },
+        "curve_allocated": {},
+        "equity_curve": "outputs/tables/equity_curve_cash_insample.csv"
+      },
+      "futures": {}
+    },
+    "risk_rules_on_off": {},
+    "betas": {},
+    "crowding": {},
+    "tails": [],
+    "capacity": {},
+    "deflated_sharpe": {},
+    "event_path": {
+      "low": {
+        "n": 126,
+        "k": [
+          -10,
+          -9,
+          -8,
+          -7,
+          -6,
+          -5,
+          -4,
+          -3,
+          -2,
+          -1,
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "mean_pct": [
+          0.0,
+          0.0289554,
+          -0.0302511,
+          -0.00584508,
+          -0.0713314,
+          -0.0856523,
+          -0.110871,
+          -0.13464,
+          -0.151774,
+          -0.100361,
+          0.0306427,
+          -0.0497234,
+          -0.0363635,
+          -0.0582554,
+          -0.00839553,
+          -0.027658
+        ],
+        "lo_pct": [
+          0.0,
+          -0.0453766,
+          -0.14486,
+          -0.147331,
+          -0.231076,
+          -0.245803,
+          -0.286097,
+          -0.317219,
+          -0.352894,
+          -0.306673,
+          -0.203436,
+          -0.305704,
+          -0.303683,
+          -0.351624,
+          -0.29759,
+          -0.34737
+        ],
+        "hi_pct": [
+          0.0,
+          0.103287,
+          0.0843574,
+          0.135641,
+          0.088413,
+          0.0744985,
+          0.0643545,
+          0.0479387,
+          0.0493448,
+          0.10595,
+          0.264721,
+          0.206257,
+          0.230956,
+          0.235113,
+          0.280799,
+          0.292054
+        ]
+      },
+      "mid": {
+        "n": 127,
+        "k": [
+          -10,
+          -9,
+          -8,
+          -7,
+          -6,
+          -5,
+          -4,
+          -3,
+          -2,
+          -1,
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "mean_pct": [
+          0.0,
+          0.0417618,
+          -0.0167422,
+          -0.0570273,
+          -0.000744045,
+          -0.0288219,
+          -0.0495925,
+          -0.0718499,
+          0.0192391,
+          0.0716751,
+          0.182717,
+          0.169122,
+          0.207028,
+          0.0482926,
+          0.0475693,
+          0.012121
+        ],
+        "lo_pct": [
+          0.0,
+          -0.0593228,
+          -0.134722,
+          -0.186788,
+          -0.161813,
+          -0.201678,
+          -0.23803,
+          -0.272099,
+          -0.186662,
+          -0.135264,
+          -0.0426427,
+          -0.0836486,
+          -0.0466734,
+          -0.223517,
+          -0.244038,
+          -0.288244
+        ],
+        "hi_pct": [
+          0.0,
+          0.142846,
+          0.101238,
+          0.072733,
+          0.160325,
+          0.144034,
+          0.138845,
+          0.128399,
+          0.225141,
+          0.278614,
+          0.408077,
+          0.421892,
+          0.460729,
+          0.320102,
+          0.339177,
+          0.312486
+        ]
+      },
+      "high": {
+        "n": 127,
+        "k": [
+          -10,
+          -9,
+          -8,
+          -7,
+          -6,
+          -5,
+          -4,
+          -3,
+          -2,
+          -1,
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "mean_pct": [
+          0.0,
+          0.0539317,
+          0.0616215,
+          0.0720712,
+          0.0775911,
+          0.0923574,
+          0.180056,
+          0.192542,
+          0.220034,
+          0.270832,
+          0.396668,
+          0.399158,
+          0.42008,
+          0.431756,
+          0.449954,
+          0.354596
+        ],
+        "lo_pct": [
+          0.0,
+          -0.0280685,
+          -0.0498793,
+          -0.0502575,
+          -0.0621356,
+          -0.0843213,
+          -0.00468767,
+          -0.0012895,
+          -0.0093997,
+          0.0131304,
+          0.127758,
+          0.0871423,
+          0.101349,
+          0.103975,
+          0.0993329,
+          -0.00714734
+        ],
+        "hi_pct": [
+          0.0,
+          0.135932,
+          0.173122,
+          0.1944,
+          0.217318,
+          0.269036,
+          0.364801,
+          0.386373,
+          0.449468,
+          0.528533,
+          0.665577,
+          0.711174,
+          0.738811,
+          0.759537,
+          0.800576,
+          0.716339
+        ]
+      }
+    }
+  },
+  "post_publication": {
+    "H1": {},
+    "H1_addendum": {
+      "refunding_dummy": {},
+      "within_refunding": {},
+      "within_other": {},
+      "surprise": {}
+    },
+    "H4": {},
+    "metrics": {}
+  },
+  "oos": {
+    "ran_utc": null,
+    "commit": null,
+    "H1": {},
+    "H1_addendum": {
+      "refunding_dummy": {},
+      "within_refunding": {},
+      "within_other": {},
+      "surprise": {}
+    },
+    "H4": {},
+    "metrics": {}
+  },
+  "figures": {
+    "event_path": {
+      "path": "outputs/figures/event_path.png",
+      "caption": "From T-4 to T the 10-year excess return path rises 0.217% in high-demand months and 0.142% in low-demand months; from T to T+5 it moves -0.042% and -0.058% (means, 95% bands, 1993-01 to 2024-09)."
+    },
+    "terciles": {
+      "path": "outputs/figures/terciles.png",
+      "caption": "Mean T-4 to T 10-year excess return: 0.214% in high-demand months vs 0.136% in low-demand months (high minus low +0.078%; bootstrap 95% intervals, 1993-01 to 2024-09)."
+    }
+  },
+  "trials": {
+    "count": 2
+  }
+}

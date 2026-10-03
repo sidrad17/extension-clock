@@ -1,0 +1,3 @@
+timestamp_utc,git_commit,dirty,config_hash,window,strategy,tenor,entry,exit,n,H1_b,H1_lo,H1_hi,sharpe_fc,sharpe_cal,note
+2026-10-03T08:00:42Z,a512fbf,False,aed4c3228355,in_sample,cash,DGS10,T-4,T+0,381,0.010751444914759468,-0.11017046154146304,0.13167335137098196,0.5725895349037088,0.6266992781300996,"run_all --insample: pre-registered headline (cash, net of costs)"
+2026-10-03T08:00:42Z,a512fbf,False,1238d3f986bc,in_sample_placebo,cash,DGS10,bday3(m+1),bday7(m+1),380,-0.08363516948296355,-0.20740210585787716,0.04013176689195007,-0.44941715131448545,-0.3216734067167388,"run_all --insample: placebo control (pre-registered), not a candidate strategy"

@@ -79,7 +79,7 @@ def terciles(h1_res: dict, path: Path, sample: str) -> str:
     ax.set_xticklabels(["low", "middle", "high"], fontsize=9)
     ax.set_xlabel("forced duration demand tercile (z, past months only)", fontsize=9, color=INK)
     ax.set_ylabel("mean T-4 to T excess return (%)", fontsize=9, color=INK)
-    ax.set_title(f"10-year window return by forced demand ({sample})", fontsize=10, loc="left", color=INK)
+    ax.set_title(f"10-year window return by forced demand\n({sample})", fontsize=10, loc="left", color=INK)
     _axes_style(ax)
     ax.margins(y=0.25)
     fig.tight_layout()
