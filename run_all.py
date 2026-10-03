@@ -14,6 +14,9 @@ supply leg on the tenor's contract, at 1x and 2x costs (results.json["futures"],
 `--futures` rebuilds the derived futures tables from the Databento cache (pulling it with a key if missing); without
 the flag every futures number is recomputed from the committed derived tables, so a keyless run reproduces
 results.json; with neither, the futures block is skipped with a message.
+Phase 4d adds the CMT switch diagnostic (src/cmt_switch.py, descriptive): cash vs futures supply-leg P&L by day
+around auctions (computed in the --futures build, aggregates only) and the cash reopening control
+(results.json["cmt_switch_diagnostic"]).
 Trials are appended to runs/trials.csv only with GQH_DEV=1; results.json reads the counts and the Deflated Sharpe's
 inputs from that log, so a run without GQH_DEV reproduces the committed numbers (src/trial_log.py). The headline
 Deflated Sharpe uses N = distinct variants (distinct config_hash); the one at N = every logged row is reported beside
@@ -49,6 +52,7 @@ from src.backtest import (month_end_windows, placebo_windows, reversal_windows, 
 from src.bonds import KNOT_YEARS, load_curve  # noqa: E402
 from src.calendar import load_calendar  # noqa: E402
 from src.capacity import capacity_curve  # noqa: E402
+from src import cmt_switch  # noqa: E402
 from src.data.auctions import load_auctions  # noqa: E402
 from src.data.fomc import load_fomc_dates  # noqa: E402
 from src.data.fred import load_frame  # noqa: E402
@@ -70,7 +74,7 @@ from src.tests_h import (event_path_summary, event_paths, h1, h1_addendum, h1_co
 from src.trial_log import (assert_flowclock_prereg, assert_gate1, git_state, log_trial, log_trials,  # noqa: E402
                            read_trials, trial_count, trial_counts, trial_row)
 
-VERSION = "v4 (Phase 4c: in-sample; cash and futures; month-end leg and Flow Clock)"
+VERSION = "v5 (Phase 4d: in-sample; cash and futures; month-end leg and Flow Clock; CMT switch diagnostic)"
 PENDING = ["oos and flowclock.oos (Gate 2 only)",
            "in_sample.tips_replication (Phase 6)", "figure 5: test window added and shaded (Gate 2)"]
 FUT_TABLES = {"legs": "futures_legs_insample.csv", "daily": "futures_daily_insample.csv",
@@ -286,11 +290,14 @@ def insample(futures_mode: str = "tables") -> None:
                       "terciles": {"path": "outputs/figures/terciles.png", "caption": cap2},
                       **p5["figures"], "auction_event_path": fc_fig}
     res["flowclock"] = fc_block
+    cmt_fut = fut_block.pop("_cmt_switch") if fut_block is not None else {
+        "status": "skipped: no committed derived futures tables and no --futures run"}
     if fut_block is not None:
         ins["metrics"]["futures"] = fut_block.pop("_metrics_1x")
         res["futures"] = fut_block
     else:
         res["futures"] = {"status": "skipped: no committed derived futures tables and no --futures run"}
+    res["cmt_switch_diagnostic"] = cmt_block(fc_block.pop("_cmt_switch"), cmt_fut)
     res["costs"] = report.cost_block(load_frame(list(fcost.FLEMING_2003["spread_32nds"]), end=IS_END, index=cal.days,
                                                 fill=True))
     res["trials"] = {"count": trial_count(), "total_logged_runs": tc["total_logged_runs"],
@@ -532,7 +539,8 @@ def flowclock(cal, is_months, win, R, Y, demand, me_common: dict, git: dict, t0:
     """
     assert_flowclock_prereg()
     yld = load_frame(FC_TENORS, end=IS_END, index=cal.days, fill=True)
-    ev = build_events(load_auctions(end=IS_END, exclude=None), cal, yld)
+    auctions = load_auctions(end=IS_END, exclude=None)
+    ev = build_events(auctions, cal, yld)
     att = dict(ev.attrs)                        # DataFrame.join below does not carry attrs
     _, xs = tenor_returns(end=IS_END, tenors={s: s for s in FC_TENORS})
     ev = ev.join(event_returns(ev, xs, yld))
@@ -747,11 +755,63 @@ def flowclock(cal, is_months, win, R, Y, demand, me_common: dict, git: dict, t0:
         "S_pre_source": {(k or "none"): int(v) for k, v in e_is["S_pre_source"].value_counts().sort_index().items()},
         "SA_months_with_events_share": float((sa.loc[is_months, "n_events"] > 0).mean()),
     }
+    # Phase 4d (descriptive, src/cmt_switch.py): the cash reopening control and the cash engine check
+    cmt = cmt_cash(ev, auctions, ins, sup_is, xs, cal)
+    sv = blocks["in_sample"]["supply_size_vs_calendar"]
+    n_rc = cmt["reopening_control"][cmt_switch.POOLED]
+    log_trial({**fc_cfg, "strategy": "supply_leg", "cost_mult": 1.0, "sample": "in_sample"},
+              "in_sample_flowclock_cmt_switch_diagnostic", {
+        "strategy": "supply_leg", "tenor": "DGS10,DGS20,DGS30", "entry": "A-5,A", "exit": "A,A+5",
+        "n": n_rc["new_issue"]["n"] + n_rc["reopening"]["n"], "H1_b": "", "H1_lo": "", "H1_hi": "",
+        "sharpe_fc": sv["sharpe_size_weighted"], "sharpe_cal": sv["sharpe_calendar"],
+        "note": "run_all Phase 4d: descriptive diagnostic, not a strategy configuration (CMT switch: cash event returns "
+                "of new issues vs reopenings, in-sample); config_hash and Sharpe columns repeat the in-sample 1x "
+                "supply_leg row, so distinct variants and the Deflated Sharpe's V are unchanged; "
+                "results.json[cmt_switch_diagnostic]"}, git=git)
+    step("Flow Clock Phase 4d: reopening control, cash engine check; logged 1 descriptive row", t0)
     block = {"prereg": {"file": "PREREG_FLOWCLOCK.md", "tag": "prereg-flowclock", "commit": "8c41154"},
-             **blocks, "oos": {"status": "test window runs once, after gate2-frozen"},
+             **blocks, "oos": {"status": "test window runs once, after gate2-frozen"}, "_cmt_switch": cmt,
              "_supply_calendar_daily": sup_is.daily["excess"],
              "_supply_calendar_gross_daily": sup_is.daily["excess"] + sup_is.daily["cost"] / sup_is.cfg.capital}
     return block, {"path": "outputs/figures/auction_event_path.png", "caption": cap}, b_is["book"]
+
+
+def cmt_cash(ev: pd.DataFrame, auctions: pd.DataFrame, ins: pd.Series, supply_book, xs: pd.DataFrame, cal) -> dict:
+    """Phase 4d, cash part (src/cmt_switch.py): the reopening control on the in-sample events (ins), the reopening
+    rule against Fiscal Data's flag, and the cash engine check on the in-sample calendar supply book."""
+    reopen = cmt_switch.reopening_flags(ev, auctions)
+    return {"reopening_control": cmt_switch.reopening_control(ev[ins], reopen[ins]),
+            "reopening_definition": {"rule": "the CUSIP was auctioned before (auction records)",
+                                     "n_in_sample_disagree_with_fiscal_data_flag": int(
+                                         (reopen[ins] != ev.loc[ins, "reopening"].astype(bool)).sum())},
+            "cash_check": cmt_switch.cash_check(supply_book.legs, xs, cal)}
+
+
+def cmt_block(cash_part: dict, fut_part: dict) -> dict:
+    """results.json["cmt_switch_diagnostic"] (Phase 4d, descriptive; src/cmt_switch.py): the cash vs futures day
+    path (aggregates from the --futures build, read from the derived checks file) and the cash reopening control."""
+    out = {"status": "descriptive diagnostic (Phase 4d, CLAUDE.md section 15): no rule, signal, sizing or cost changes; "
+                     "not a strategy configuration",
+           "question": "is part of the cash auction effect an artifact of the CMT input bond switching from the old to "
+                       "the new issue on or right after the auction?",
+           "definitions": "src/cmt_switch.py module docstring",
+           "units": {"cash_vs_futures": "before-cost P&L, bp of capital, each leg at its pre-registered DV01 (LEG_RISK "
+                                        "x CAPITAL / (sigma_bp x sqrt(5)) x FOMC half size; no drawdown rule or "
+                                        "notional cap), the same DV01 in cash and futures; b = mean across events, "
+                                        "se and t clustered by the Monday-Sunday week of A; gap = cash - futures; "
+                                        "day k = close A+k-1 -> close A+k",
+                     "reopening_control": "pre-registered event returns, %, before costs (R_pre, R_post, LS = R_post "
+                                          "- R_pre); week-clustered"},
+           "cash_vs_futures": fut_part}
+    out.update(cash_part)
+    if "all" in fut_part:
+        a = fut_part["all"]
+        out["summary"] = {"share_of_total_gap_on_A": a["day_A"]["share_of_total_gap"],
+                          "share_of_total_gap_on_S": a["day_S"]["share_of_total_gap"],
+                          "share_of_total_gap_on_A_and_S": a["gap_on_A_and_S"]["share_of_total_gap"],
+                          "mean_total_gap_bp": a["legs"]["total"]["gap"]["b"],
+                          "mean_total_gap_t": a["legs"]["total"]["gap"]["t"]}
+    return out
 
 
 def fut_paths() -> dict:
@@ -765,9 +825,10 @@ def futures(*, cash_cal, cash_supply_daily, cash_supply_gross_daily, rf, git: di
     rebuild_futures() on a --futures run or committed, so a keyless run reproduces results.json; skipped (None) if
     they are absent. Logs 12 trials (4 Phase 4 + 8 risk-rule variants, Phase 4b). Phase 4c adds the capacity variant
     active_adv beside the as-written capacity and the cash supply leg's Sharpe before costs on the futures days
-    (cash_supply_gross_daily: daily net excess + cost / capital), both descriptive. Returns the results block with
-    private keys _daily_excess (Deflated Sharpe inputs), _metrics_1x (in_sample.metrics.futures) and _fig (figure 5's
-    futures panel)."""
+    (cash_supply_gross_daily: daily net excess + cost / capital), both descriptive. Phase 4d reads the CMT switch
+    diagnostic's aggregates from the checks file and logs one descriptive row under the 1x supply leg's config_hash.
+    Returns the results block with private keys _daily_excess (Deflated Sharpe inputs), _metrics_1x
+    (in_sample.metrics.futures), _fig (figure 5's futures panel) and _cmt_switch (the diagnostic)."""
     import json
     paths = fut_paths()
     if not all(p.exists() for p in paths.values()):
@@ -869,6 +930,21 @@ def futures(*, cash_cal, cash_supply_daily, cash_supply_gross_daily, rf, git: di
                 "H1_b": "", "H1_lo": "", "H1_hi": "", "sharpe_fc": "", "sharpe_cal": mt["sharpe"],
                 "note": f"run_all Phase 4b: futures {strat_name}, risk rules {name}, 1x costs; sharpe_cal = this "
                         f"calendar strategy's net Sharpe; no slope (H1_* blank)"}, git=git))
+    cmt = checks.pop("cmt_switch_diagnostic", {"status": "not in the derived tables; rerun with --futures"})
+    if "all" in cmt:            # Phase 4d, descriptive: the futures supply leg's 1x configuration, not a new one
+        cfg_su = {**fu_cfg, "strategy": "futures_supply_leg", "risk": asdict(RiskConfig(cost_mult=1.0))}
+        row = trial_row(cfg_su, "in_sample_futures_cmt_switch_diagnostic", {
+            "strategy": "futures_supply_leg", "tenor": "ZT-UB by auction tenor", "entry": "A-5,A", "exit": "A,A+5",
+            "n": cmt["n_events_used"], "H1_b": "", "H1_lo": "", "H1_hi": "", "sharpe_fc": "",
+            "sharpe_cal": m_su["supply_calendar"]["sharpe"],
+            "note": "run_all Phase 4d: descriptive diagnostic, not a strategy configuration (CMT switch: cash - futures "
+                    "supply-leg P&L by day around auctions, same events, same DV01); config_hash and sharpe_cal "
+                    "repeat the 1x futures supply leg row, so distinct variants and the Deflated Sharpe's V are "
+                    "unchanged; results.json[cmt_switch_diagnostic]"}, git=git)
+        base = [r for r in rows if r["window"] == "in_sample_futures" and r["strategy"] == "futures_supply_leg"]
+        if len(base) != 1 or base[0]["config_hash"] != row["config_hash"]:
+            raise RuntimeError("Phase 4d diagnostic row: config_hash differs from the futures supply leg's 1x row")
+        rows.append(row)
     n_logged = log_trials(rows)
     step(f"futures: {len(rows)} trial rows ({n_logged} written to runs/trials.csv)", t0)
 
@@ -907,6 +983,7 @@ def futures(*, cash_cal, cash_supply_daily, cash_supply_gross_daily, rf, git: di
         "_daily_excess": {"month_end_zn": me1.daily["excess"], "supply_calendar": su1.daily["excess"]},
         "_metrics_1x": {"calendar_only_zn": m_me["month_end_zn"], "flowclock_supply_calendar": m_su["supply_calendar"]},
         "_fig": fig,
+        "_cmt_switch": cmt,
     }
 
 
@@ -915,17 +992,26 @@ def rebuild_futures(cal, win, is_months, fomc, rf, y10, t0) -> None:
     books -> the derived tables. Runs before any trial of the run is logged, so a failure here logs nothing."""
     assert_flowclock_prereg()
     yld = load_frame(FC_TENORS, end=IS_END, index=cal.days, fill=True)
-    ev = build_events(load_auctions(end=IS_END, exclude=None), cal, yld)
+    auctions = load_auctions(end=IS_END, exclude=None)
+    ev = build_events(auctions, cal, yld)
     traded = ev["window_complete"] & ~ev["skipped"]
     sup_entries = pd.DatetimeIndex(pd.concat([ev.loc[traded, "pre_entry"], ev.loc[traded, "A"]]))
     fut_months = is_months[is_months >= pd.Period(FUT_START, "M")]
-    _build_futures_tables(cal, win, fut_months, fomc, rf, y10, ev, sup_entries, yld, fut_paths(), t0)
+    issue = auctions.set_index(["auction_date", "cusip"])["issue_date"]
+    cmt = {"issue_date": pd.Series(issue.reindex(pd.MultiIndex.from_arrays([ev["A"], ev["cusip"]])).to_numpy(),
+                                   index=ev.index),
+           "reopen": cmt_switch.reopening_flags(ev, auctions),
+           "excess": tenor_returns(end=IS_END, tenors={s: s for s in FC_TENORS})[1]}
+    _build_futures_tables(cal, win, fut_months, fomc, rf, y10, ev, sup_entries, yld, fut_paths(), t0, cmt=cmt)
 
 
-def _build_futures_tables(cal, win, fut_months, fomc, rf, y10, ev, sup_entries, yld, paths, t0) -> None:
+def _build_futures_tables(cal, win, fut_months, fomc, rf, y10, ev, sup_entries, yld, paths, t0,
+                          cmt: dict | None = None) -> None:
     """Settlements, volume and definitions from the Databento cache -> the futures books (Phase 4: 1x and 2x costs;
     Phase 4b: each risk rule off) -> the derived tables (no notional, raw volume, exact cap factor or settlement
-    level; src/futures.py), the capacity aggregates (as written and, Phase 4c, active_adv) and the data checks."""
+    level; src/futures.py), the capacity aggregates (as written and, Phase 4c, active_adv), the data checks and,
+    Phase 4d, the CMT switch diagnostic's aggregates (cmt: issue_date and reopen aligned with ev, and the cash
+    excess returns per tenor; None skips it)."""
     import json
 
     import yaml
@@ -962,6 +1048,15 @@ def _build_futures_tables(cal, win, fut_months, fomc, rf, y10, ev, sup_entries, 
     capacity_active = {k: fut.capacity_curve_futures(res[k], m, adv_measure="active")      # Phase 4c variant
                        for k in ("month_end_zn", "supply_calendar")}
     step("futures: capacity curves done, as written and active_adv (aggregates only)", t0)
+    if cmt is not None:                 # Phase 4d (src/cmt_switch.py): same events, same DV01, aggregates only
+        ev_f = ev[sel]
+        cmt_out = cmt_switch.cash_vs_futures(ev_f, cmt["issue_date"][sel], cmt["reopen"][sel], su_legs, su_prep, m,
+                                             cmt["excess"], yld, fomc, cal, RiskConfig().capital,
+                                             check=res["supply_calendar"])
+        step(f"futures: CMT switch diagnostic, {cmt_out['n_events_used']} of {cmt_out['n_events']} events "
+             f"(futures engine check max diff ${cmt_out['futures_check']['max_abs_diff_usd']:.2g})", t0)
+    else:
+        cmt_out = {"status": "not computed in this build"}
     cover = st.groupby("root")["trade_date"].agg(["min", "max", "size"])
     checks = {
         "source": "Databento GLBX.MDP3: statistics (settlement), ohlcv-1d (volume), definition (monthly snapshots)",
@@ -977,6 +1072,7 @@ def _build_futures_tables(cal, win, fut_months, fomc, rf, y10, ev, sup_entries, 
         "bond_days_without_any_settlement": fut.settlement_gaps(m, fdays),
         "capacity": capacity,
         "capacity_active_adv": capacity_active,
+        "cmt_switch_diagnostic": cmt_out,
     }
     paths["checks"].write_text(json.dumps(report.clean(checks), indent=2) + "\n", encoding="utf-8")
     step(f"futures: derived tables written ({len(leg_t)} leg rows, {len(day_t)} days)", t0)

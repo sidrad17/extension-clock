@@ -393,7 +393,8 @@ def test_trial_counts_distinct_and_rows():
 
 def test_run_all_futures_tables_then_block(monkeypatch, tmp_path):
     """--futures builds the derived tables; every run computes the futures block from them (identically), and with
-    no tables the block is skipped."""
+    no tables the block is skipped. Phase 4d: the CMT switch diagnostic's aggregates go into the checks file and come
+    back with one descriptive trial row per run under the futures supply leg's own config_hash."""
     (tmp_path / "tables").mkdir()
     monkeypatch.setattr(report, "OUTPUTS", tmp_path)
     monkeypatch.setattr(run_all, "FUT_START", "2015-01-01")
@@ -421,18 +422,38 @@ def test_run_all_futures_tables_then_block(monkeypatch, tmp_path):
     kw = dict(cash_cal=cash, cash_supply_daily=sup_net, cash_supply_gross_daily=sup_net + 0.0001, rf=RF,
               git={"commit": "x", "dirty": False}, t0=0.0)
     assert run_all.futures(**kw) is None                                     # no tables yet: skipped
+    S = [CAL.offset(a, k) for a, k in zip(A, [3, 2, 2, 7, 4, 3, 6, 9])]           # settlement days, some after A+5
+    cmt = {"issue_date": pd.Series(S, index=ev.index), "reopen": pd.Series([False, True] * 4, index=ev.index),
+           "excess": pd.DataFrame({t: RNG.normal(0.0001, 0.003, len(DAYS)) for t in YLD.columns}, index=DAYS)}
     run_all._build_futures_tables(CAL, win, months[months >= pd.Period("2015-01", "M")], fomc, RF, YLD["DGS10"],
                                   ev, pd.DatetimeIndex(list(ev["pre_entry"]) + list(A)), YLD, run_all.fut_paths(),
-                                  0.0)
+                                  0.0, cmt=cmt)
     for k in ("legs", "daily", "checks"):
         assert (tmp_path / "tables" / run_all.FUT_TABLES[k]).exists()
     b1 = run_all.futures(**kw)
     b2 = run_all.futures(**kw)
     assert report.clean({k: v for k, v in b1.items() if not k.startswith("_")}) == \
         report.clean({k: v for k, v in b2.items() if not k.startswith("_")})
-    assert len(logged) == 24 and {r["window"] for r in logged} == {
-        "in_sample_futures", "in_sample_futures_cost2x"} | {f"in_sample_futures_risk_{n}" for n in run_all.FUT_RISK_NAMES}
+    assert len(logged) == 26 and {r["window"] for r in logged} == {
+        "in_sample_futures", "in_sample_futures_cost2x", "in_sample_futures_cmt_switch_diagnostic"} | {
+        f"in_sample_futures_risk_{n}" for n in run_all.FUT_RISK_NAMES}
     assert len({r["config_hash"] for r in logged}) == 12                    # 12 distinct configurations, logged twice
+    diag = [r for r in logged if r["window"] == "in_sample_futures_cmt_switch_diagnostic"]
+    su1x = [r for r in logged if r["window"] == "in_sample_futures" and r["strategy"] == "futures_supply_leg"]
+    assert [r["config_hash"] for r in diag] == [r["config_hash"] for r in su1x]
+    assert [r["sharpe_cal"] for r in diag] == [r["sharpe_cal"] for r in su1x] and diag[0]["sharpe_fc"] == ""
+    c = b1["_cmt_switch"]
+    assert c["n_events"] == 8 and c["n_events_used"] + sum(c["n_events_dropped_by_leg_status"].values()) == 8
+    assert c["n_events_used"] >= 6 and c["futures_check"]["max_abs_diff_usd"] < 1e-6
+    assert set(c["all"]["day_path"]) == {"A-4", "A-3", "A-2", "A-1", "A", "A+1", "A+2", "A+3", "A+4", "A+5"}
+    assert c["all"]["day_S"]["n_units_S_after_window"] >= 1
+    assert set(c["by_issue_type"]) <= {"DGS10", "DGS20", "DGS30", "DGS10+DGS20+DGS30"}
+    import json
+    raw = (tmp_path / "tables" / run_all.FUT_TABLES["checks"]).read_text()
+    assert "cmt_switch_diagnostic" in json.loads(raw) and not any(e in raw for e in ev["event_id"])   # aggregates
+    blk = run_all.cmt_block({"reopening_control": {}}, c)
+    assert blk["summary"]["share_of_total_gap_on_A_and_S"] == pytest.approx(
+        blk["summary"]["share_of_total_gap_on_A"] + blk["summary"]["share_of_total_gap_on_S"], abs=1e-5)
     assert set(b1["risk_rules_on_off"]) == {"all_on", *run_all.FUT_RISK_NAMES}
     assert b1["risk_rules_on_off"]["all_off"]["metrics"]["supply_calendar"]["n_drawdown_halved"] == 0
     assert set(b1["capacity"]) == {"month_end_zn", "supply_calendar"} and "capacity" not in b1["data"]

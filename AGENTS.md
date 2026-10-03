@@ -711,6 +711,59 @@ choices, stated in the docstrings of `src/futures.py`, `src/figures.py`, `src/re
   `config_hash`; the new constants live in `src/futures.py` (NOTIONAL_ROUND) and `config/costs.py`, which no trial
   configuration includes.
 
+**Phase 4c** (team decision of Oct 3, 2026, after the Phase 4b results and before any result below): active-contract
+ADV for futures capacity. No signal, window, sizing, cost or risk rule changes; the holdout guard stays on.
+
+- **Why.** In roll months the Phase 4b ADV is read from the contract the leg will hold, which traded thinly for most
+  of the 20 days, so the 5% cap and the impact term bind on legs of ~100 ZN contracts although ZN trades ~1M
+  contracts a day. This is a measurement error in the capacity model, not a strategy choice.
+- **Variant "active_adv" (team).** For each of the ADV_LOOKBACK (20) bond days ending E-1 (the Phase 4b window), take
+  the volume of the most-traded contract of the leg's root on that day (UTC-day `ohlcv-1d` bars of the quarterly
+  outrights, as the roll rule; 0 if the root has no bar that day); ADV = the mean of those 20 values. The root is the
+  root of the contract the leg holds (ZN / ZB for legs on the TN / UB fallback). Everything else in the capacity
+  model is unchanged: Q = contracts x K / CAPITAL cut to 5% of ADV, square-root impact with the held contract's
+  sigma_price, the capital grid and halving capital, costs not netted across legs, drawdown and cap decisions from
+  the base run. Both futures legs (month-end ZN and supply leg), 1x costs.
+- **Reporting.** The as-written (Phase 4b) capacity numbers stay in `results.json["futures"]["capacity"]` unchanged;
+  the variant goes beside them in `results.json["futures"]["capacity_active_adv"]`, labeled, with the same fields
+  plus, per leg, the number and share of traded legs whose held-contract ADV is below 10% of active_adv. Aggregates
+  only, as Phase 4b: no prices and no per-day or per-contract volume in any committed file. Descriptive, not a trial;
+  the code lives in `src/futures.py` and `config/` is unchanged, so no `config_hash` changes and the run logs its
+  usual rows under the counting rule above.
+- **Also descriptive (nothing changed).** The cash calendar supply leg's Sharpe before costs (daily net excess + that
+  day's cost / capital) on the futures days (2010-07-01 to 2024-09-30), beside the futures supply leg's
+  (`sharpe_gross`), in `results.json["futures"]["supply_calendar"]["vs_cash_supply_calendar"]`. And a read-only
+  listing, from the committed legs table, of ZT supply legs whose DV01 regression R² is below 0.5.
+
+**Phase 4d** (team request of Oct 3, 2026, after the Phase 4c results and before any result below): CMT switch
+diagnostic. Descriptive only: no rule, signal, sizing or cost changes; the holdout guard stays on. Code:
+`src/cmt_switch.py` (its docstring holds every choice); `config/` is unchanged.
+
+- **Why.** Treasury fits the CMT curve to ~3:30 PM bid prices of the most recently auctioned securities, so on or
+  right after an auction its input bond switches from the old issue to the new one, and the supply leg flips
+  short -> long at the close of A. Futures have no switch and capture about half of the cash signal before costs on
+  the same days (Phase 4c: Sharpe 0.54 vs 1.10).
+- **Cash vs futures by day (team: 2010-07-01 to 2024-09-30, same events, bp of capital at pre-registered sizing).**
+  Events = the futures supply leg's; an event is used when both legs have a sizable futures contract (`prepare_legs`
+  status "ok"); the rest are counted. Both instruments carry each leg's pre-registered DV01 (0.25% x capital /
+  (sigma x sqrt(5)) x FOMC half size). The drawdown rule and the notional cap are left out because each book runs
+  them on its own NAV and notional, so they size the same leg differently in cash and futures. Futures contracts are
+  not rounded. Day k = close A+k-1 -> close A+k, k = -4..5. Day S = the issue date when it falls in A+1..A+5 (later
+  S are counted). Reported: mean cash, futures and gap (cash - futures) per day with t clustered by week of A (as
+  H6); share of the gap = mean gap on the day / mean total gap; by tenor; for 10y, 20y and 30y also by new issue vs
+  reopening. Computed in the `--futures` build; only aggregates go into `futures_data_checks_insample.json`
+  (licensed data). Each daily-P&L function is checked against its book engine on every run.
+- **Reopening control (team: cash, full in-sample, 10y, 20y, 30y).** Reopening = the CUSIP was auctioned before
+  (auction records; disagreements with Fiscal Data's `reopening` flag are counted). R_pre, R_post and LS =
+  R_post - R_pre (%, before costs) for new issues vs reopenings: counts, first and last A, week-clustered t, and
+  reopening minus new from OLS on a dummy (pooled: plus tenor dummies).
+- **Trials (team: section 15 rule, no new strategy configurations).** Two descriptive rows per run, windows
+  `in_sample_flowclock_cmt_switch_diagnostic` and `in_sample_futures_cmt_switch_diagnostic`. They reuse the
+  `config_hash` and Sharpe columns of the in-sample 1x cash supply-leg row and of the 1x futures supply-leg row,
+  so the distinct-variant count and V do not change. Total logged runs grow by 2 per run.
+- **Reporting.** `results.json["cmt_switch_diagnostic"]`: `cash_vs_futures`, `reopening_control`,
+  `reopening_definition`, `cash_check` and `summary` (shares of the gap on A and S).
+
 ---
 
 ## Appendix A: `HYPOTHESIS.md` (write verbatim at Phase 0)
