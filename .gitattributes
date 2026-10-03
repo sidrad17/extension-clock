@@ -1,0 +1,3 @@
+# Checksummed data: never let git rewrite line endings (CHECKSUMS.sha256 must match on every OS).
+data/snapshot/** -text
+config/fomc_dates.csv -text

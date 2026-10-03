@@ -1,0 +1,115 @@
+{
+  "files": {
+    "auctions.csv": {
+      "downloaded_utc": "2026-10-03T06:02:13Z",
+      "first": "1979-10-31",
+      "last": "2026-10-08",
+      "rows": 2791,
+      "source": "Fiscal Data auctions_query",
+      "url": "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/od/auctions_query"
+    },
+    "fomc_dates.csv": {
+      "downloaded_utc": "2026-10-03T06:02:00Z",
+      "first": "1993-02-03",
+      "last": "2027-12-08",
+      "rows": 334,
+      "source": "Federal Reserve FOMC calendars",
+      "url": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+    },
+    "fred_DGS1.csv": {
+      "downloaded_utc": "2026-10-03T06:02:16Z",
+      "first": "1962-01-02",
+      "last": "2026-10-01",
+      "rows": 16893,
+      "source": "FRED DGS1",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS1"
+    },
+    "fred_DGS10.csv": {
+      "downloaded_utc": "2026-10-03T06:02:16Z",
+      "first": "1962-01-02",
+      "last": "2026-10-01",
+      "rows": 16893,
+      "source": "FRED DGS10",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS10"
+    },
+    "fred_DGS2.csv": {
+      "downloaded_utc": "2026-10-03T06:02:16Z",
+      "first": "1976-06-01",
+      "last": "2026-10-01",
+      "rows": 13133,
+      "source": "FRED DGS2",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS2"
+    },
+    "fred_DGS20.csv": {
+      "downloaded_utc": "2026-10-03T06:02:16Z",
+      "first": "1962-01-02",
+      "last": "2026-10-01",
+      "rows": 16893,
+      "source": "FRED DGS20",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS20"
+    },
+    "fred_DGS3.csv": {
+      "downloaded_utc": "2026-10-03T06:02:16Z",
+      "first": "1962-01-02",
+      "last": "2026-10-01",
+      "rows": 16893,
+      "source": "FRED DGS3",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS3"
+    },
+    "fred_DGS30.csv": {
+      "downloaded_utc": "2026-10-03T06:02:17Z",
+      "first": "1977-02-15",
+      "last": "2026-10-01",
+      "rows": 12948,
+      "source": "FRED DGS30",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS30"
+    },
+    "fred_DGS5.csv": {
+      "downloaded_utc": "2026-10-03T06:02:16Z",
+      "first": "1962-01-02",
+      "last": "2026-10-01",
+      "rows": 16893,
+      "source": "FRED DGS5",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS5"
+    },
+    "fred_DGS7.csv": {
+      "downloaded_utc": "2026-10-03T06:02:16Z",
+      "first": "1969-07-01",
+      "last": "2026-10-01",
+      "rows": 14938,
+      "source": "FRED DGS7",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS7"
+    },
+    "fred_DTB3.csv": {
+      "downloaded_utc": "2026-10-03T06:02:17Z",
+      "first": "1954-01-04",
+      "last": "2026-10-01",
+      "rows": 18979,
+      "source": "FRED DTB3",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DTB3"
+    },
+    "mspd_notes_bonds.csv": {
+      "downloaded_utc": "2026-10-03T06:02:17Z",
+      "first": "2001-01-31",
+      "last": "2026-08-31",
+      "rows": 616,
+      "source": "Fiscal Data MSPD table 1",
+      "url": "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/debt/mspd/mspd_table_1"
+    },
+    "pension_pressure.csv": {
+      "downloaded_utc": "2026-10-03T06:02:17Z",
+      "first": "1990-01-02",
+      "last": "2026-08-31",
+      "rows": 9233,
+      "source": "Ken French daily factors (derived)",
+      "url": "https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/F-F_Research_Data_Factors_daily_CSV.zip"
+    }
+  },
+  "notes": {
+    "auctions.csv": "\nAll Note and Bond auctions from the Fiscal Data `auctions_query` endpoint, every column as published (strings,\nmissing = \"null\"). Includes auctions announced but not yet held at download time (no results yet).\nSOMA check (details in `src/data/auctions.py::public_amount`): on all 1,121 auctions with `soma_accepted > 0`\n(2008-04 onward), `total_accepted = offering_amt + soma_accepted` to within 0.003%, so `total_accepted` includes the\nFed's add-on and the public amount is `total_accepted - soma_accepted`. Before 2008-04-10 the feed has no SOMA\nfield and `total_accepted` exceeds `offering_amt` by ~14% on average, so the public amount there is\n`offering_amt`. Secondary-market SOMA (QE) holdings are not in this feed.\n",
+    "fomc_dates.csv": "\nAll events on the Fed's FOMC calendar pages from 1993, one row each, with `decision` = 1 for decision dates. Rule\n(details in `src/data/fomc.py`): every scheduled meeting counts on its last day; an unscheduled meeting, conference\ncall or notation vote counts only if it links a policy \"Statement\", dated by that statement; cancelled meetings\nand special meetings without a statement (2000 on) do not count. 1993 conference calls predate statements and do\nnot count. Future scheduled meetings on the calendar page are included.\n\nHand-check (2026-10-03, by Claude Code; humans to confirm at STOP 2): 12 decision dates were each confirmed by\nopening the Fed press release linked from the calendar page and finding the same date and the policy action on\nit: 1994-02-04 (first statement), 1994-04-18 (call), 1998-10-15 (call), 2001-01-03 (call, -50bp), 2001-09-17\n(call, -50bp), 2008-01-22 (call on 01-21, -75bp), 2008-10-08 (call on 10-07, coordinated cut), 2008-12-16\n(0-1/4%), 2015-12-16 (liftoff), 2020-03-15 (unscheduled, to 0-1/4%), 2022-03-16 (first hike), 2024-09-18 (-50bp).\n",
+    "fred_*.csv": "\nFRED `fredgraph.csv` files as published (blank = missing). Known gaps: DGS20 is blank 1987-01-01 to 1993-09-30.\nDGS30 has values 2002-02-19 to 2006-02-08 in this vintage, but they splice badly at both ends (+17bp vs DGS20\n+3bp on 2002-02-19; -16bp vs -3bp on 2006-02-09), consistent with an extrapolated 30-year rate when no 30-year\nbond was issued; `src/data/fred.py` masks that window by default (the file keeps the published values).\nLoaders never forward-fill a run of more than 5 missing business days.\n",
+    "mspd_notes_bonds.csv": "\nMonthly Statement of the Public Debt, table 1 (Fiscal Data `/v1/debt/mspd/mspd_table_1`), marketable Notes and Bonds\nlines only, $ millions as published. Coverage starts 2001-01-31, so the par validation (CLAUDE.md 7.6) runs from\n2001. \"Notes\"/\"Bonds\" exclude TIPS and FRNs. \"Debt held by the public\" includes Federal Reserve holdings.\n",
+    "pension_pressure.csv": "\nDerived from the Ken French daily factors (raw zip kept in git-ignored `data/cache/`, never committed):\n`mkt_total_pct = Mkt-RF + RF` (percent per day), from 1990-01-01. This is the only French input the pension\nsignal uses (CLAUDE.md 7.7); the monthly signal is computed in `src/signals.py`. The file ends at the last CRSP\nupdate in the downloaded vintage.\n"
+  }
+}
