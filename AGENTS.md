@@ -577,8 +577,8 @@ untouched test window).
 - Tests: `tests/test_auction_events.py`, `tests/test_flowclock.py`, and the Flow Clock guard in
   `tests/test_guards.py`.
 
-**Still to do** (pre-registered, not built): the test-window run (Gate 2) and the volume-based capacity estimate
-(PREREG_FLOWCLOCK.md "What is new", item 4). The futures version of the supply leg is Phase 4 (section 15).
+**Still to do** (pre-registered, not built): the test-window run (Gate 2). The futures version of the supply leg is
+Phase 4 and its volume-based capacity estimate (PREREG_FLOWCLOCK.md "What is new", item 4) Phase 4b (section 15).
 
 ---
 
@@ -671,6 +671,45 @@ any futures return was computed. No definition changes after results.
 - **Checks.** Trade-date alignment: ZN settlement changes (highest-volume contract) against DGS10 changes at lags -1,
   0, +1, and on three known large-move dates (2016-11-09, 2020-03-09, 2022-11-10). Comparisons with the cash legs
   over the same months are descriptive (cash runs sliced, not rerun).
+
+**Phase 4b** (team decisions of Oct 3, 2026, after the Phase 4 results and before any result below; the rest our
+choices, stated in the docstrings of `src/futures.py`, `src/figures.py`, `src/report.py` and `config/costs.py`):
+
+- **Licensed data (team).** No committed file may let anyone recover Databento prices or raw volume. The futures leg
+  table keeps, per leg, contracts, DV01 (target, per contract, total), P&L and costs, and the notional cap only as a
+  flag (`capped`); it has no notional, no raw volume and no exact cap factor, and its diagnostics (sigma, DV01, R²,
+  raw contract count) are rounded to 8 significant digits. The daily gross and traded notionals are rounded to $1M.
+  Every futures metric is computed from these tables: turnover = sum of the daily traded notional / capital / years
+  for both futures legs (v1 used 2 x entry notional for the month-end leg, the cash convention); mean and max gross
+  notional are taken over the days a leg is held overnight. Capacity is stored only as aggregates. The v1 tables
+  were removed from history (commit 15b354b rewritten as 22e4f47, private repo force-pushed; the tags
+  `gate1-prereg`, `prereg-addendum` and `prereg-flowclock` still point to 745354e, dbfe85e and 8c41154).
+- **Risk rules on and off (futures).** As Phase 5 for cash: FOMC half size, drawdown rule and notional cap each off
+  alone, then all three, for the futures month-end leg (ZN) and the futures supply leg, at 1x costs; 8 trial rows
+  (window `in_sample_futures_risk_<name>`).
+- **Capacity (futures; section 7.13; PREREG_FLOWCLOCK.md item 4).** ADV = mean daily volume of the leg's contract
+  over the 20 bond days ending E-1 (UTC-day bars, as the roll rule; 0 on a day without a bar); sigma_price = std of
+  its daily settlement changes (points) over the 60 bond days ending E-1. At capital K a leg trades Q = contracts x
+  K / CAPITAL (continuous), cut to 5% of ADV; its P&L and its own round-trip cost scale by the same factor. Impact
+  per side = sigma_price x sqrt(Q / ADV) x Q x $ per point, at entry and at exit, per leg with no netting across
+  legs (conservative); costs are not netted across legs here either, so the curve starts from the unnetted Sharpe,
+  reported beside the strategy's netted one. Drawdown and cap decisions are kept from the base run. Grid $10M to
+  $10B in steps of 10^0.25 and the halving capital as `src/capacity.py`. For the month-end leg and the supply leg
+  at 1x costs; descriptive, not a trial.
+- **Figure 5.** A second panel: the futures month-end leg and supply leg, 2010-07 to 2024-09, beside the cash
+  calendar-only and cash supply legs over the same days (the full in-sample runs sliced, each rebased to 1).
+- **Kill condition (team).** The futures supply leg is reported at 1x and 2x costs as meeting PREREG_FLOWCLOCK.md's
+  kill condition "it disappears at 2x costs" (team judgment on the Phase 4 numbers, net Sharpe 0.289 at 1x and 0.071
+  at 2x; nothing changed here moves its P&L or costs).
+- **Cash cost (team).** 0.5 bp of yield per round trip (`CASH_COST_BP`, gate1-prereg) is our assumption.
+  `results.json["costs"]` sets it beside Fleming (2003), FRBNY Economic Policy Review 9(3), Table 3: mean interdealer
+  bid-ask spreads of the on-the-run 2-, 5- and 10-year notes of 0.21, 0.39 and 0.78 32nds of a point (GovPX,
+  1996-12-30 to 2000-03-31), converted to yield bp with the par bond's modified duration at that tenor's mean CMT
+  yield over the same dates (`src/bonds.py`); a round trip crosses one full spread. Futures costs (team, Phase 4):
+  1 tick + $2 per contract round trip.
+- **Trial hashes.** `config/futures.py` is unchanged, so the 4 Phase 4 futures configurations keep their
+  `config_hash`; the new constants live in `src/futures.py` (NOTIONAL_ROUND) and `config/costs.py`, which no trial
+  configuration includes.
 
 ---
 

@@ -102,6 +102,39 @@ def validation_block(monthly: pd.DataFrame) -> dict:
             "skipped_tranches": int(v.in_sample(monthly)["n_skipped"].sum())}
 
 
+def cost_block(yields: pd.DataFrame) -> dict:
+    """Cost assumptions with the published reference (Phase 4b, CLAUDE.md section 15; config/costs.py).
+
+    The cash cost (CASH_COST_BP per round trip) is our assumption. Fleming (2003)'s mean interdealer bid-ask spreads
+    of the on-the-run notes (32nds of a point) are converted to yield bp with the modified duration of a par bond of
+    that maturity at the tenor's mean CMT yield over the paper's sample (src/bonds.py); a round trip crosses one full
+    spread, so the ratio our cost / spread compares like with like. yields: the reference tenors' CMT yields (%)."""
+    from config.costs import FLEMING_2003 as ref
+    from config.settings import CASH_COST_BP, COST_STRESS, FUT_COMMISSION_RT
+    from src.bonds import KNOT_YEARS, mod_duration
+    lo, hi = (pd.Timestamp(d) for d in ref["sample"])
+    by = {}
+    for t, s32 in ref["spread_32nds"].items():
+        y = float(yields.loc[lo:hi, t].mean())
+        d = float(mod_duration(y, y, KNOT_YEARS[t]))
+        pts = s32 / 32.0
+        bp = pts / (d * 0.01)                         # 1 bp of yield moves a par bond's price by D x 0.01 points
+        by[t] = {"spread_32nds": s32, "spread_points": pts, "mean_cmt_yield_pct": y, "par_mod_duration": d,
+                 "spread_bp_yield": bp, "our_cost_over_spread": CASH_COST_BP / bp}
+    return {
+        "cash": {"bp_yield_per_round_trip": CASH_COST_BP, "stress_bp": CASH_COST_BP * COST_STRESS,
+                 "status": "0.5 bp of yield per round trip is our assumption (config/settings.py, gate1-prereg); no "
+                           "source fixes it",
+                 "reference": {"citation": ref["citation"], "url": ref["url"], "sample": ref["sample"],
+                               "data": ref["data"], "by_tenor": by,
+                               "note": "interdealer spreads are the narrowest in the market; customer trades, "
+                                       "off-the-run issues, 1993-1996 and stressed days cost more"}},
+        "futures": {"per_contract_round_trip": f"1 tick + ${FUT_COMMISSION_RT:g}",
+                    "status": "team decision (CLAUDE.md section 15); tick value from the exchange definitions",
+                    "stress_mult": COST_STRESS},
+    }
+
+
 def write_results(results: dict, path: Path = RESULTS_JSON) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     out = clean(results)

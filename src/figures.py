@@ -1,7 +1,8 @@
 """Note figures (CLAUDE.md section 8): 300 dpi, readable in greyscale, captions built from the numbers they show.
 
 Phase 3: 1. event_path.png (page-1 hero exhibit) and 2. terciles.png. Phase 5: 3. extension_series.png,
-4. curve_map.png, 5. equity_curve.png (in-sample; the test window is added and shaded at Gate 2), 6. capacity.png.
+4. curve_map.png, 5. equity_curve.png (in-sample; the test window is added and shaded at Gate 2; Phase 4b adds a
+futures panel), 6. capacity.png.
 Flow Clock (PREREG_FLOWCLOCK.md): auction_event_path.png, A-10..A+10 by size-signal tercile.
 Series are told apart by line style and grey level, so every figure reads in greyscale.
 Each function returns the one-sentence caption that report.py stores in results.json beside the figure path.
@@ -196,9 +197,7 @@ EQ_STYLE = [{"color": "#000000", "ls": "-"}, {"color": "#6b6b6b", "ls": "--"}, {
             {"color": "#9e9e9e", "ls": "-."}]
 
 
-def equity_curve(navs: dict, sharpes: dict, path: Path, sample: str) -> str:
-    """Figure 5: excess-return NAV (strategy P&L only, log scale) of each strategy, in-sample, net of costs."""
-    fig, ax = plt.subplots(figsize=(7.0, 3.8))
+def _equity_panel(ax, navs: dict, sharpes: dict, ticks: list[float]) -> None:
     for (name, nav), st in zip(navs.items(), EQ_STYLE):
         ax.plot(nav.index, nav.to_numpy(), color=st["color"], ls=st["ls"], lw=1.4,
                 label=f"{name} (net Sharpe {sharpes[name]:.2f})")
@@ -209,20 +208,41 @@ def equity_curve(navs: dict, sharpes: dict, path: Path, sample: str) -> str:
         ax.text(d, y, f" {v:.2f}", fontsize=7, color=INK, va="center")
         y_prev = y
     ax.set_yscale("log")
-    ax.yaxis.set_major_locator(matplotlib.ticker.FixedLocator([1.0, 1.5, 2.0, 3.0, 4.0]))
+    ax.yaxis.set_major_locator(matplotlib.ticker.FixedLocator(ticks))
     ax.yaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: f"{v:g}"))
     ax.yaxis.set_minor_formatter(matplotlib.ticker.NullFormatter())
     ax.axhline(1.0, color=MUTED, lw=0.6)
     ax.set_ylabel("growth of 1 (excess of T-bill, log scale)", fontsize=9, color=INK)
-    ax.set_title(f"Equity curves, cash, net of costs ({sample}; test window not yet run)", fontsize=10, loc="left",
-                 color=INK)
     _axes_style(ax)
     ax.legend(fontsize=8, frameon=False, loc="upper left")
+
+
+def equity_curve(navs: dict, sharpes: dict, path: Path, sample: str, fut_navs: dict | None = None,
+                 fut_sharpes: dict | None = None, fut_sample: str | None = None) -> str:
+    """Figure 5: excess-return NAV (strategy P&L only, log scale) of each strategy, in-sample, net of costs. With
+    fut_navs, a second panel shows the futures legs and, for comparison, the cash legs over the same days (each
+    rebased to 1 at the start of the futures sample)."""
+    if fut_navs is None:
+        fig, ax = plt.subplots(figsize=(7.0, 3.8))
+        axes = [ax]
+    else:
+        fig, axes = plt.subplots(2, 1, figsize=(7.0, 7.2), gridspec_kw={"height_ratios": [1.1, 1.0]})
+    _equity_panel(axes[0], navs, sharpes, [1.0, 1.5, 2.0, 3.0, 4.0])
+    axes[0].set_title(f"Equity curves, cash, net of costs ({sample}; test window not yet run)", fontsize=10,
+                      loc="left", color=INK)
+    if fut_navs is not None:
+        _equity_panel(axes[1], fut_navs, fut_sharpes, [0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5])
+        axes[1].set_title(f"Futures legs and the cash legs over the same days, net of costs ({fut_sample})",
+                          fontsize=10, loc="left", color=INK)
     fig.tight_layout()
     fig.savefig(path, dpi=DPI)
     plt.close(fig)
     parts = [f"{k} {v.iloc[-1]:.2f}x (Sharpe {sharpes[k]:.2f})" for k, v in navs.items()]
-    return f"Growth of 1 in excess of T-bills, net of costs: {'; '.join(parts)} ({sample})."
+    cap = f"Growth of 1 in excess of T-bills, net of costs: {'; '.join(parts)} ({sample})."
+    if fut_navs is not None:
+        fp = [f"{k} {v.iloc[-1]:.2f}x (Sharpe {fut_sharpes[k]:.2f})" for k, v in fut_navs.items()]
+        cap += f" Futures and same-day cash ({fut_sample}): {'; '.join(fp)}."
+    return cap
 
 
 def capacity(curves: dict, path: Path, sample: str) -> str:

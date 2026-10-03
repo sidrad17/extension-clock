@@ -15,7 +15,7 @@ from src.backtest import month_end_windows, run_strategy
 from src.calendar import BondCalendar
 from src.data import databento_futures as dbf
 from src.flowclock import demand_legs
-from src.metrics import required_metrics
+from src.metrics import required_metrics  # noqa: F401
 from src.risk import RiskConfig, sigma_bp
 from src.trial_log import trial_counts
 
@@ -278,20 +278,75 @@ def test_tick_value_is_point_in_time():
     assert MKT.tick_value("ZTZ2015", "2014-01-02") == 15.625        # before its first snapshot: the first one
 
 
+STR_COLS = ("leg_id", "unit_id", "kind", "tenor", "product", "root", "contract", "status")
+
+
+def read_back(tmp_path, leg_t, day_t):
+    leg_t.to_csv(tmp_path / "l.csv", index=False)
+    day_t.to_csv(tmp_path / "d.csv")
+    lt = pd.read_csv(tmp_path / "l.csv", dtype={c: str for c in STR_COLS}, keep_default_na=False,
+                     na_values={c: [""] for c in fut.LEG_TABLE_COLS if c not in STR_COLS},
+                     float_precision="round_trip")
+    return lt, pd.read_csv(tmp_path / "d.csv", index_col="date", float_precision="round_trip")
+
+
 def test_tables_round_trip_is_exact(tmp_path):
+    """P&L survives the CSV round trip bit for bit (default float repr), so a keyless run reproduces every metric."""
     r1, _, _ = month_end(("2015-01", "2016-06"))
     leg_t, day_t = fut.to_tables({"month_end_zn": r1})
-    leg_t.to_csv(tmp_path / "l.csv", index=False, float_format="%.17g")
-    day_t.to_csv(tmp_path / "d.csv", float_format="%.17g")
-    str_cols = ("leg_id", "unit_id", "kind", "tenor", "product", "root", "contract", "status")
-    lt = pd.read_csv(tmp_path / "l.csv", dtype={c: str for c in str_cols}, keep_default_na=False,
-                     na_values={c: [""] for c in fut.LEG_TABLE_COLS if c not in str_cols},
-                     float_precision="round_trip")
-    dt = pd.read_csv(tmp_path / "d.csv", index_col="date", float_precision="round_trip")
+    lt, dt = read_back(tmp_path, leg_t, day_t)
     back = fut.from_tables(lt, dt, RF, {"month_end_zn": "month"}, base_cfg=OFF)["month_end_zn"]
     assert (back.daily["excess"].to_numpy() == r1.daily["excess"].to_numpy()).all()
-    a, b = required_metrics(fut.as_strategy(r1)), required_metrics(fut.as_strategy(back))
-    assert a == b
+    assert (lt["net_pnl"].to_numpy() == leg_t["net_pnl"].to_numpy()).all()
+    lt2, dt2 = read_back(tmp_path, *fut.to_tables({"month_end_zn": back}))
+    again = fut.from_tables(lt2, dt2, RF, {"month_end_zn": "month"}, base_cfg=OFF)["month_end_zn"]
+    assert fut.month_end_metrics(back) == fut.month_end_metrics(again)          # idempotent
+
+
+def test_tables_hold_no_price_or_volume():
+    """Licensed data (CLAUDE.md section 15, Phase 4b): no notional, raw volume, exact cap factor or settlement level;
+    daily notionals in whole $1M; contracts, DV01 and P&L kept."""
+    r1, _, _ = month_end(("2015-01", "2016-06"))
+    leg_t, day_t = fut.to_tables({"month_end_zn": r1})
+    assert not {"notional", "volume", "cap_mult", "settle_entry", "settle_exit"} & set(leg_t.columns)
+    assert {"contracts", "dv01", "dv01_contract", "gross_pnl", "cost", "net_pnl", "capped"} <= set(leg_t.columns)
+    for c in ("month_end_zn__gross_notional", "month_end_zn__traded_notional"):
+        v = day_t[c].to_numpy()
+        assert (v == np.round(v / 1e6) * 1e6).all() and (v >= 0).all()
+    assert (day_t["month_end_zn__gross_pnl"].to_numpy() == r1.daily["gross_pnl"].to_numpy()).all()
+    # what the table gives for a traded leg cannot pin its entry settlement: $1M of notional spans many ticks
+    t = leg_t[leg_t["contracts"] > 0].iloc[0]
+    assert 1e6 / (t["contracts"] * t["point_value"]) > 50 * (15.625 / 1000.0)
+
+
+def test_notional_metrics_use_traded_notional_and_days_held():
+    r1, _, _ = month_end(("2015-01", "2016-06"))
+    m = fut.month_end_metrics(r1)
+    d = r1.daily
+    years = ((d.index[-1] - d.index[0]).days + 1) / 365.25
+    assert m["turnover_x_per_year"] == pytest.approx(d["traded_notional"].sum() / 1e7 / years)
+    held = fut.held_overnight(r1)
+    assert held.sum() == 4 * 18 and m["mean_notional_x_capital"] == pytest.approx(
+        d.loc[held, "gross_notional"].mean() / 1e7)
+    assert (d.loc[~held, "gross_notional"] == 0).all()
+
+
+def test_capacity_curve_futures():
+    nav = DAYS[(DAYS >= "2015-01-01") & (DAYS <= "2016-11-30")]
+    win = month_end_windows(CAL, pd.period_range("2015-01", "2016-06", freq="M"))
+    legs = fut.month_end_legs(demand_legs(win, CAL))
+    prep = fut.prepare_legs(legs, MKT, YLD)
+    res = fut.run_futures_book("me", legs, prep, MKT, YLD, RF, pd.DatetimeIndex([]), CAL, nav, OFF,
+                               demand_per_year=12, unit="month", record_leg_daily=True)
+    assert res.leg_daily.groupby("leg")["gross_pnl"].sum().to_numpy() == pytest.approx(
+        res.legs.loc[res.legs["contracts"] > 0, "gross_pnl"].to_numpy())
+    cap = fut.capacity_curve_futures(res, MKT, capitals=[1e-6, 1e7, 1e9, 1e11])
+    g = cap["grid"]
+    # impact per $ of capital falls with sqrt(K): at $1e-6 it vanishes; one leg at a time, so unnetted = netted
+    assert g["sharpe"][0] == pytest.approx(cap["sharpe_strategy_netted_costs"], rel=1e-6)
+    assert g["sharpe"][0] >= g["sharpe"][1] >= g["sharpe"][2] >= g["sharpe"][3]
+    assert g["share_legs_capped"][-1] == 1.0 and g["max_participation"][-1] == pytest.approx(0.05)
+    assert set(cap["median_adv_contracts_by_product"]) == {"ZN"}
 
 
 def test_trial_counts_distinct_and_rows():
@@ -345,10 +400,43 @@ def test_run_all_futures_tables_then_block(monkeypatch, tmp_path):
     b2 = run_all.futures(**kw)
     assert report.clean({k: v for k, v in b1.items() if not k.startswith("_")}) == \
         report.clean({k: v for k, v in b2.items() if not k.startswith("_")})
-    assert len(logged) == 8 and {r["window"] for r in logged} == {"in_sample_futures", "in_sample_futures_cost2x"}
+    assert len(logged) == 24 and {r["window"] for r in logged} == {
+        "in_sample_futures", "in_sample_futures_cost2x"} | {f"in_sample_futures_risk_{n}" for n in run_all.FUT_RISK_NAMES}
+    assert len({r["config_hash"] for r in logged}) == 12                    # 12 distinct configurations, logged twice
+    assert set(b1["risk_rules_on_off"]) == {"all_on", *run_all.FUT_RISK_NAMES}
+    assert b1["risk_rules_on_off"]["all_off"]["metrics"]["supply_calendar"]["n_drawdown_halved"] == 0
+    assert set(b1["capacity"]) == {"month_end_zn", "supply_calendar"} and "capacity" not in b1["data"]
+    kill = b1["supply_calendar"]["kill_condition_2x_costs"]
+    assert kill["met"] and kill["sharpe_1x"] == b1["supply_calendar"]["metrics"]["sharpe"]
+    assert set(b1["_fig"]["fut_navs"]) == set(b1["_fig"]["fut_sharpes"]) and len(b1["_fig"]["fut_navs"]) == 4
+    legs_csv = pd.read_csv(tmp_path / "tables" / run_all.FUT_TABLES["legs"], nrows=1)
+    assert not {"notional", "volume", "cap_mult"} & set(legs_csv.columns)
     me = b1["month_end_zn"]
     assert me["metrics"]["n_windows"] > 0 and me["legs"]["by_product"].keys() == {"ZN"}
     assert b1["supply_calendar"]["legs"]["n_traded"] == 16
     assert set(b1["supply_calendar"]["legs"]["by_tenor_product"]) <= {f"{t}->{SUPPLY_CONTRACT[t]}" for t in tenors} \
         | {"DGS10->ZN"}
     assert b1["data"]["alignment"]["corr_dsettle_neg_dy10_by_lag"]["0"] > 0.99
+
+
+def test_figure5_futures_panel(tmp_path):
+    from src import figures
+    a = pd.Series(np.linspace(1.0, 1.8, len(DAYS)), index=DAYS)
+    b = pd.Series(np.linspace(1.0, 1.2, 300), index=DAYS[-300:])
+    cap = figures.equity_curve({"cash A": a}, {"cash A": 0.6}, tmp_path / "f.png", "2014-01 to 2016-12",
+                               fut_navs={"fut B": b}, fut_sharpes={"fut B": 0.3}, fut_sample="2015-10 to 2016-12")
+    assert (tmp_path / "f.png").stat().st_size > 10_000
+    assert "fut B 1.20x (Sharpe 0.30)" in cap and "cash A 1.80x (Sharpe 0.60)" in cap
+
+
+def test_cost_block_converts_fleming_spreads_to_yield_bp():
+    from src.bonds import mod_duration
+    from src.report import cost_block
+    d = pd.bdate_range("1996-12-02", "2000-04-28")
+    y = pd.DataFrame({"DGS2": 5.8, "DGS5": 6.0, "DGS10": 6.0}, index=d)
+    c = cost_block(y)
+    t = c["cash"]["reference"]["by_tenor"]["DGS10"]
+    dur = float(mod_duration(6.0, 6.0, 10.0))
+    assert t["spread_bp_yield"] == pytest.approx((0.78 / 32) / (dur * 0.01))
+    assert t["our_cost_over_spread"] == pytest.approx(0.5 / t["spread_bp_yield"])
+    assert "our assumption" in c["cash"]["status"] and c["cash"]["bp_yield_per_round_trip"] == 0.5

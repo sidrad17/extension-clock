@@ -43,6 +43,24 @@ Oct 3, 2026; the rest our choices, approved by the team at the same time).
   each contract, so offsetting legs in the same contract net out (the futures form of the Flow Clock book's cost
   netting). Per-leg attributed cost (hit rate, P&L tables) = contracts x (tick at entry + tick at exit + 2 x $2) / 2.
 * Turnover: sum over closes of |change in net contracts| x settlement x $ per point / CAPITAL / years.
+
+Phase 4b (team decisions of Oct 3, 2026, after the Phase 4 results and before any of these; CLAUDE.md section 15):
+* Licensed data: the committed tables (to_tables) carry no notional, no raw volume and no exact cap factor, so no
+  Databento price or volume can be backed out. Per leg they keep contracts, DV01 and P&L, the notional cap as a flag
+  ("capped"), and diagnostics rounded to 8 significant digits; the daily gross and traded notionals are rounded to
+  NOTIONAL_ROUND ($1M). Every futures metric is computed from these tables. Turnover = sum of the daily traded
+  notional / CAPITAL / years for both futures legs (in v1 the month-end leg used 2 x entry notional, the cash
+  convention); mean and max gross notional are taken over the days a leg is held overnight (from the legs table).
+* Capacity (CLAUDE.md 7.13; PREREG_FLOWCLOCK.md "What is new", item 4), rough as CLAUDE.md says, computed in the
+  --futures build and stored only as aggregates: ADV = mean daily volume of the leg's contract over the
+  ADV_LOOKBACK (20) bond days ending E-1 (UTC-day ohlcv-1d bars, as the roll rule; 0 on days without a bar);
+  sigma_price = std (ddof 1) of the contract's daily settlement changes (points) over the DV01_LOOKBACK (60) bond
+  days ending E-1. At capital K a leg trades Q = contracts x K / CAPITAL (continuous), cut to ADV_CAP (5%) of ADV;
+  its P&L and its own round-trip cost scale by f = Q_capped / Q. Impact per side = sigma_price x sqrt(Q / ADV) x Q x
+  $ per point, at entry and at exit, per leg with no netting across legs (conservative). Daily return at K =
+  sum over legs of f x (gross P&L - own cost) / CAPITAL - impact / K. Costs are not netted across legs here, so the
+  curve starts from the unnetted Sharpe (reported beside the strategy's netted one); drawdown and cap decisions
+  are kept from the base run. Grid and halving capital as src/capacity.py.
 """
 from __future__ import annotations
 
@@ -238,7 +256,7 @@ def run_futures_book(name: str, legs: pd.DataFrame, prep: pd.DataFrame, m: Marke
                      rf: pd.Series, fomc_scheduled: pd.DatetimeIndex, cal, days: pd.DatetimeIndex,
                      cfg: RiskConfig | None = None, demand_per_year: int = 0,
                      supply_entries: pd.DatetimeIndex | None = None, unit: str = "event",
-                     commission_rt: float = FUT_COMMISSION_RT) -> BookResult:
+                     commission_rt: float = FUT_COMMISSION_RT, record_leg_daily: bool = False) -> BookResult:
     """Daily NAV of futures legs traded as one book (module docstring). legs + prep share an index; days = the NAV
     bond days. Returns src/flowclock.py's BookResult, so src/flowclock.book_metrics applies."""
     cfg = cfg or RiskConfig()
@@ -272,6 +290,7 @@ def run_futures_book(name: str, legs: pd.DataFrame, prep: pd.DataFrame, m: Marke
     net_prev: dict[str, float] = {}
     dd = _BookDrawdown(cfg)
     open_: list[int] = []
+    leg_daily: list[tuple[int, int, float]] = []
     cap_total = cfg.notional_cap * cfg.capital
     for i in range(nd):
         day = days[i]
@@ -282,6 +301,8 @@ def run_futures_book(name: str, legs: pd.DataFrame, prep: pd.DataFrame, m: Marke
                 gross[j] += g
                 pnl[i] += g
                 last[j] = s
+                if record_leg_daily:
+                    leg_daily.append((j, i, g))
         open_ = [j for j in open_ if x_i[j] != i]               # exits at this close, then entries
         new = entries.get(i, [])
         if new:
@@ -345,7 +366,8 @@ def run_futures_book(name: str, legs: pd.DataFrame, prep: pd.DataFrame, m: Marke
     out_legs = legs[keep].assign(
         root=prep["root"].to_numpy(), fallback_used=prep["fallback_used"].to_numpy(bool), contract=contract,
         fid=prep["fid"].to_numpy(), volume_day=prep["volume_day"].to_numpy(), volume=prep["volume"].to_numpy(),
-        status=status, sigma_bp=sig, fomc_mult=fomc_m, dd_mult=dd_m, cap_mult=cap_m, dv01_target=dv01_t,
+        status=status, sigma_bp=sig, fomc_mult=fomc_m, dd_mult=dd_m, cap_mult=cap_m, capped=cap_m < 1,
+        dv01_target=dv01_t,
         dv01_contract=prep["dv01_contract"].to_numpy(float), dv01_r2=prep["dv01_r2"].to_numpy(float),
         dv01_n=prep["dv01_n"].to_numpy(int), contracts_raw=raw, contracts=n_c,
         dv01=n_c * prep["dv01_contract"].to_numpy(float), notional=notional, point_value=pv, tick_value_entry=tick_e,
@@ -356,7 +378,10 @@ def run_futures_book(name: str, legs: pd.DataFrame, prep: pd.DataFrame, m: Marke
                           "traded_notional": traded}, index=days)
     if daily["total"].isna().any():
         raise ValueError(f"{name}: missing T-bill returns in the NAV period")
-    return BookResult(name=name, legs=out_legs, daily=daily, cfg=cfg, unit=unit)
+    res = BookResult(name=name, legs=out_legs, daily=daily, cfg=cfg, unit=unit)
+    if record_leg_daily:
+        res.leg_daily = pd.DataFrame(leg_daily, columns=["leg", "day", "gross_pnl"])
+    return res
 
 
 # ------------------------------------------------------------------------------------------------ results
@@ -369,11 +394,14 @@ def traded(res: BookResult) -> BookResult:
 
 def as_strategy(res: BookResult) -> StrategyResult:
     """A month-end futures book (one leg per month) as src/backtest.py's StrategyResult, so
-    src/metrics.required_metrics applies (traded windows only; capital fixed)."""
+    src/metrics.required_metrics applies (traded windows only; capital fixed). The committed tables keep no leg
+    notional (licensed data), so `notional` is NaN here and month_end_metrics() replaces the notional-based fields."""
     t = res.legs[res.legs["contracts"] > 0].copy()
     t["month"] = pd.PeriodIndex(t["unit_id"], freq="M")
-    t["capped"] = (t["cap_mult"] < 1).astype(int)
+    t["capped"] = t["capped"].astype(bool).astype(int)
     t["fomc"] = (t["fomc_mult"] < 1).astype(int)
+    if "notional" not in t:
+        t["notional"] = np.nan
     trades = t.set_index("month")[["entry", "exit", "hold_days", "sigma_bp", "w", "fomc", "fomc_mult", "dd_mult",
                                    "dv01", "notional", "capped", "gross_pnl", "cost", "net_pnl", "contract",
                                    "contracts"]]
@@ -400,34 +428,177 @@ def leg_summary(res: BookResult) -> dict:
             "status": {k: int(v) for k, v in L["status"].value_counts().sort_index().items()},
             "by_product": {k: by_root[k] for k in sorted(by_root)},
             "by_tenor_product": {f"{a}->{b}": int(v) for (a, b), v in t.groupby(["tenor", "root"]).size().items()},
-            "n_contracts_capped": int((t["cap_mult"] < 1).sum()),
+            "n_contracts_capped": int(t["capped"].astype(bool).sum()),
             "realised_over_target_dv01": {"median": float(ratio.median()), "p5": float(ratio.quantile(0.05)),
                                           "p95": float(ratio.quantile(0.95))},
             "n_distinct_contracts": int(t["contract"].nunique())}
 
 
+def held_overnight(res: BookResult) -> pd.Series:
+    """Days on which a traded leg is held at the close (entry <= t < exit), from the legs table."""
+    d = res.daily.index
+    pos = pd.Series(np.arange(len(d)), index=d)
+    held = np.zeros(len(d), bool)
+    t = res.legs[res.legs["contracts"] > 0]
+    for e, x in zip(pos.reindex(t["entry"]).to_numpy(int), pos.reindex(t["exit"]).to_numpy(int)):
+        held[e:x] = True
+    return pd.Series(held, index=d)
+
+
+def notional_stats(res: BookResult) -> dict:
+    """Turnover and gross-notional statistics from the (rounded) daily notionals (module docstring, Phase 4b)."""
+    d, cap = res.daily, res.cfg.capital
+    years = float(((d.index[-1] - d.index[0]).days + 1) / 365.25)
+    held = held_overnight(res)
+    return {"turnover_x_per_year": float(d["traded_notional"].sum() / cap / years),
+            "mean_gross_notional_x_capital": float(d.loc[held, "gross_notional"].mean() / cap),
+            "max_gross_notional_x_capital": float(d["gross_notional"].max() / cap),
+            "share_days_invested": float(held.mean()),
+            "notional_rounding_usd": NOTIONAL_ROUND}
+
+
+def month_end_metrics(res: BookResult) -> dict:
+    """src/metrics.required_metrics for a futures month-end book, with the notional-based fields from
+    notional_stats (turnover from the traded notional; mean notional over the days held)."""
+    from src.metrics import required_metrics
+    m = required_metrics(as_strategy(res))
+    ns = notional_stats(res)
+    m["turnover_x_per_year"] = ns["turnover_x_per_year"]
+    m["mean_notional_x_capital"] = ns["mean_gross_notional_x_capital"]
+    m["max_notional_x_capital"] = ns["max_gross_notional_x_capital"]
+    m["notional_rounding_usd"] = NOTIONAL_ROUND
+    return m
+
+
+def book_metrics_futures(res: BookResult) -> dict:
+    """src/flowclock.book_metrics for a futures book (traded legs; the cap flag stands in for the cap factor), with
+    the notional-based fields from notional_stats."""
+    from src.flowclock import book_metrics
+    t = traded(res)
+    legs = t.legs.assign(cap_mult=np.where(t.legs["capped"].astype(bool), 0.0, 1.0))  # book_metrics counts < 1
+    m = book_metrics(BookResult(name=t.name, legs=legs, daily=t.daily, cfg=t.cfg, unit=t.unit))
+    ns = notional_stats(res)
+    for k in ("turnover_x_per_year", "mean_gross_notional_x_capital", "max_gross_notional_x_capital",
+              "share_days_invested", "notional_rounding_usd"):
+        m[k] = ns[k]
+    return m
+
+
+# ------------------------------------------------------------------------------------------------ capacity
+
+def capacity_curve_futures(res: BookResult, m: Market, capitals: list[float] | None = None,
+                           adv_cap: float | None = None) -> dict:
+    """Net Sharpe against capital with square-root impact and the ADV participation cap (module docstring, Phase
+    4b). res: an in-memory base run made with record_leg_daily=True. Returns aggregates only (no per-leg volume)."""
+    from config.settings import ADV_CAP, ADV_LOOKBACK
+    from src.capacity import CAPITALS
+    from src.stats import sharpe
+    capitals = capitals or CAPITALS
+    adv_cap = ADV_CAP if adv_cap is None else adv_cap
+    L = res.legs
+    tr = L.index[L["contracts"] > 0].to_numpy()
+    days = res.daily.index
+    cap0 = res.cfg.capital
+    adv, sig_px = np.full(len(L), np.nan), np.full(len(L), np.nan)
+    for j in tr:
+        c, e = L.at[j, "contract"], L.at[j, "entry"]
+        p = int(m.days.get_loc(e))
+        adv[j] = float(m.volume[c].iloc[max(p - ADV_LOOKBACK, 0):p].mean())
+        lv = m.settle[c].iloc[max(p - 1 - DV01_LOOKBACK, 0):p].to_numpy(float)
+        ch = np.diff(lv)
+        ch = ch[np.isfinite(ch)]
+        sig_px[j] = float(ch.std(ddof=1)) if len(ch) > 1 else np.nan
+    pos = pd.Series(np.arange(len(days)), index=days)
+    e_i = pos.reindex(L["entry"]).to_numpy()
+    x_i = pos.reindex(L["exit"]).to_numpy()
+    n = L["contracts"].to_numpy(float)
+    pv = L["point_value"].to_numpy(float)
+    half_e = n * (L["tick_value_entry"].to_numpy(float) + FUT_COMMISSION_RT) / 2.0 * res.cfg.cost_mult
+    half_x = n * (L["tick_value_exit"].to_numpy(float) + FUT_COMMISSION_RT) / 2.0 * res.cfg.cost_mult
+    ld = res.leg_daily
+    rows = []
+    for K in capitals:
+        q = n * K / cap0
+        q_cap = np.where(adv > 0, np.minimum(q, adv_cap * np.where(adv > 0, adv, 0.0)), 0.0)
+        f = np.divide(q_cap, q, out=np.zeros_like(q), where=q > 0)
+        part = np.divide(q_cap, adv, out=np.zeros_like(q), where=adv > 0)
+        impact = np.where(q_cap > 0, sig_px * np.sqrt(part) * q_cap * pv, 0.0)
+        r = np.zeros(len(days))
+        np.add.at(r, ld["day"].to_numpy(int), f[ld["leg"].to_numpy(int)] * ld["gross_pnl"].to_numpy(float) / cap0)
+        np.add.at(r, e_i[tr].astype(int), -(f[tr] * half_e[tr] / cap0 + impact[tr] / K))
+        np.add.at(r, x_i[tr].astype(int), -(f[tr] * half_x[tr] / cap0 + impact[tr] / K))
+        years = ((days[-1] - days[0]).days + 1) / 365.25
+        rows.append({"capital": K, "sharpe": sharpe(r),
+                     "ann_excess_return_pct": (float(np.prod(1.0 + r)) ** (1.0 / years) - 1.0) * 100.0,
+                     "mean_participation": float(np.mean(part[tr])), "max_participation": float(np.max(part[tr])),
+                     "share_legs_capped": float(np.mean(q[tr] > q_cap[tr])),
+                     "impact_pct_per_year": float(2.0 * (impact[tr] / K).sum() / years * 100.0)})
+    grid = pd.DataFrame(rows)
+    s0 = float(grid["sharpe"].iloc[0])
+    k_half = _halving_capital(grid)
+    med_adv = {r: float(np.median(adv[tr][L["root"].to_numpy()[tr] == r])) for r in sorted(set(L.loc[tr, "root"]))}
+    return {"sample": [str(days[0].date()), str(days[-1].date())], "n_legs": int(len(tr)),
+            "sharpe_strategy_netted_costs": sharpe(res.daily["excess"]), "sharpe_at_10m": s0,
+            "capital_where_sharpe_halves": k_half, "halves_within_grid": k_half is not None,
+            "median_adv_contracts_by_product": med_adv, "grid": grid.to_dict(orient="list"),
+            "note": "rough (CLAUDE.md 7.13): sqrt impact per leg side, 5% of 20-day ADV cap, costs not netted "
+                    "across legs, drawdown and cap decisions from the base run; aggregates only (licensed data)"}
+
+
+def _halving_capital(grid: pd.DataFrame) -> float | None:
+    """Capital where the net Sharpe falls to half its value at the first grid point (log-linear interpolation, as
+    src/capacity.py); None if it never does within the grid."""
+    s0 = float(grid["sharpe"].iloc[0])
+    half = s0 / 2.0
+    below = np.nonzero(grid["sharpe"].to_numpy() <= half)[0]
+    if not (s0 > 0 and len(below)):
+        return None
+    i = int(below[0])
+    if i == 0:
+        return float(grid["capital"].iloc[0])
+    s_a, s_b = grid["sharpe"].iloc[i - 1], grid["sharpe"].iloc[i]
+    l_a, l_b = np.log10(grid["capital"].iloc[i - 1]), np.log10(grid["capital"].iloc[i])
+    return float(10 ** (l_a + (s_a - half) / (s_a - s_b) * (l_b - l_a)))
+
+
 # ------------------------------------------------------------------------------------------------ derived tables
 
+NOTIONAL_ROUND = 1e6      # daily gross / traded notional in the committed tables, $ (licensed data, Phase 4b)
 LEG_TABLE_COLS = ["strategy", "cost_mult", "leg_id", "unit_id", "kind", "tenor", "product", "root", "fallback_used",
-                  "contract", "entry", "exit", "fid", "volume_day", "volume", "status", "sign", "base_risk",
-                  "hold_days", "w", "sigma_bp", "fomc_mult", "dd_mult", "cap_mult", "dv01_target", "dv01_contract",
-                  "dv01_r2", "dv01_n", "contracts_raw", "contracts", "dv01", "notional", "point_value",
-                  "tick_value_entry", "tick_value_exit", "gross_pnl", "cost", "net_pnl"]
+                  "contract", "entry", "exit", "fid", "volume_day", "status", "sign", "base_risk", "hold_days", "w",
+                  "sigma_bp", "fomc_mult", "dd_mult", "capped", "dv01_target", "dv01_contract", "dv01_r2", "dv01_n",
+                  "contracts_raw", "contracts", "dv01", "point_value", "tick_value_entry", "tick_value_exit",
+                  "gross_pnl", "cost", "net_pnl"]
+ROUNDED_COLS = ["sigma_bp", "dv01_target", "dv01_contract", "dv01_r2", "contracts_raw", "dv01"]   # 8 sig. digits
 DAILY_TABLE_COLS = ["gross_pnl", "cost", "gross_notional", "traded_notional"]
 DATE_COLS = ["entry", "exit", "fid", "volume_day"]
 
 
+def _sig(x, digits: int = 8):
+    """Round to `digits` significant digits (NaN kept)."""
+    x = np.asarray(x, float)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        mag = np.where(np.isfinite(x) & (x != 0), np.floor(np.log10(np.abs(x))), 0.0)
+    scale = 10.0 ** (digits - 1 - mag)
+    return np.where(np.isfinite(x), np.round(x * scale) / scale, x)
+
+
 def to_tables(results: dict[str, BookResult]) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """(legs, daily) derived tables of several futures books, keyed by strategy name. No settlement levels."""
+    """(legs, daily) derived tables of several futures books, keyed by strategy name. No notional, raw volume,
+    exact cap factor or settlement level (module docstring, Phase 4b); daily notionals rounded to NOTIONAL_ROUND."""
     legs, daily = [], {}
     for k, r in results.items():
-        legs.append(r.legs.assign(strategy=k, cost_mult=r.cfg.cost_mult)[LEG_TABLE_COLS])
+        lt = r.legs.assign(strategy=k, cost_mult=r.cfg.cost_mult)[LEG_TABLE_COLS].copy()
+        for c in ROUNDED_COLS:
+            lt[c] = _sig(lt[c])
+        legs.append(lt)
         for c in DAILY_TABLE_COLS:
-            daily[f"{k}__{c}"] = r.daily[c]
+            v = r.daily[c].to_numpy(float)
+            daily[f"{k}__{c}"] = np.round(v / NOTIONAL_ROUND) * NOTIONAL_ROUND if c.endswith("notional") else v
     leg_t = pd.concat(legs, ignore_index=True)
     for c in DATE_COLS:
         leg_t[c] = pd.to_datetime(leg_t[c]).dt.strftime("%Y-%m-%d")
-    day_t = pd.DataFrame(daily)
+    day_t = pd.DataFrame(daily, index=next(iter(results.values())).daily.index)
     day_t.index = day_t.index.strftime("%Y-%m-%d")
     return leg_t, day_t.rename_axis("date")
 
@@ -444,6 +615,7 @@ def from_tables(leg_t: pd.DataFrame, day_t: pd.DataFrame, rf: pd.Series, units: 
         for c in DATE_COLS:
             g[c] = pd.to_datetime(g[c])
         g["fallback_used"] = g["fallback_used"].astype(str).str.lower().eq("true")
+        g["capped"] = g["capped"].astype(str).str.lower().eq("true")
         cm = float(g["cost_mult"].iloc[0])
         cfg = replace(base_cfg, cost_mult=cm)
         d = pd.DataFrame({c: day_t[f"{k}__{c}"].to_numpy(float) for c in DAILY_TABLE_COLS}, index=day_t.index)
