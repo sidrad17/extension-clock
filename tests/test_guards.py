@@ -55,3 +55,14 @@ def test_dev_mode_reads_environment(monkeypatch):
     assert tl.dev_mode()
     monkeypatch.setenv("GQH_DEV", "0")
     assert not tl.dev_mode()
+
+
+def test_flowclock_requires_its_tag_and_unchanged_prereg(dev):
+    with pytest.raises(tl.GateError):
+        tl.assert_flowclock_prereg()                           # gate1 tag only: no prereg-flowclock yet
+    dev.setattr(tl, "_tags", lambda: [tl.GATE1_TAG, tl.FLOWCLOCK_TAG])
+    dev.setattr(tl, "_flowclock_changed", lambda: False)
+    tl.assert_flowclock_prereg()
+    dev.setattr(tl, "_flowclock_changed", lambda: True)
+    with pytest.raises(tl.GateError):
+        tl.assert_flowclock_prereg()

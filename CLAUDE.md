@@ -75,11 +75,14 @@ extension-clock/
 ├── AGENTS.md                    # identical copy for Codex / Cursor
 ├── README.md                    # setup in 3 commands, the one reproduce command, sources, runtime
 ├── HYPOTHESIS.md                # Appendix A verbatim; never edited after gate1-prereg
+├── PREREG_ADDENDUM.md           # tag prereg-addendum; never edited
+├── PREREG_FLOWCLOCK.md          # second pre-registration (auction supply), tag prereg-flowclock; never edited (section 13)
 ├── requirements.txt             # pinned
 ├── .env.example                 # DATABENTO_API_KEY=   (optional)   GQH_DEV=1 (team only)
 ├── .gitignore                   # .env, data/cache/, __pycache__/, .ipynb_checkpoints/
 ├── config/
 │   ├── settings.py              # every parameter (section 6)
+│   ├── flowclock.py             # Flow Clock parameters, as stated in PREREG_FLOWCLOCK.md (section 13)
 │   ├── fomc_dates.csv           # FOMC decision dates 1993–2026 (scraped + hand-checked)
 │   └── contract_specs.yaml      # CME tick size, tick value, multiplier per contract, with source URL + date
 ├── data/
@@ -104,7 +107,9 @@ extension-clock/
 │   ├── capacity.py              # volume-based capacity, square-root impact
 │   ├── trial_log.py             # runs/trials.csv + gate guards
 │   ├── figures.py               # section 8
-│   └── report.py                # writes outputs/results.json and tables
+│   ├── report.py                # writes outputs/results.json and tables
+│   ├── auction_events.py        # Flow Clock: auction events, windows, size signal zS, month-end supply SA_m (no returns)
+│   └── flowclock.py             # Flow Clock: window returns, H6a-c, H7, supply leg, netted book, metrics, event path
 ├── scripts/
 │   ├── download_all.py          # refresh snapshot (FRED, Fiscal Data, MSPD, Ken French), rewrite checksums
 │   ├── fetch_fomc.py            # scrape FOMC dates into config/fomc_dates.csv
@@ -496,6 +501,81 @@ flowchart LR
   c --> t1[Tier 1 results] -- iterate, logged --> c
   t1 --> t2[Tier 2 results] --> g2{Gate 2: freeze} --> o[Test window once] --> w[Write note] --> r[Fresh-clone check] --> s[Submit by 9:45 AM Sun]
 ```
+
+---
+
+## 13. Flow Clock: the supply side (PREREG_FLOWCLOCK.md)
+
+A second, separate hypothesis and a combined strategy, pre-registered after Phase 3 and before any return around a
+Treasury auction was computed: tag `prereg-flowclock`, commit `8c41154` (Oct 3, 2026, 4:27 AM ET).
+`PREREG_FLOWCLOCK.md` is the authority. Like `HYPOTHESIS.md`, it is never edited after its tag, and the month-end
+results, H1-H5 and `config/settings.py` are untouched by it. Dealers absorb new coupon supply at auction, so yields
+should rise over the 5 bond days before each nominal coupon auction (A-5 to A) and fall over the 5 after (A to A+5),
+more so for auctions that are large relative to recent ones (Lou, Yan & Zhang 2013, extended to 2009-2024 and the
+untouched test window).
+
+**Rules.**
+- **Gate.** Gate 1 and Gate 2 apply unchanged. In addition, with `GQH_DEV=1`, `assert_flowclock_prereg()`
+  (`src/trial_log.py`) refuses to compute any auction-window return unless the `prereg-flowclock` tag exists and
+  `PREREG_FLOWCLOCK.md`, `PREREG_ADDENDUM.md`, `HYPOTHESIS.md` and `config/settings.py` are unchanged since that tag.
+- **Freeze.** Do not change any Flow Clock definition after seeing a result. If something looks wrong, report it
+  to the humans and stop. The test window (2024-10 to 2026-09) runs once, after `gate2-frozen`, like everything else.
+
+**Files.**
+- `config/flowclock.py`: the parameters the pre-registration states (`settings.py` stays locked). Shared parameters
+  (vol lookback, capital, costs, cap, FOMC and drawdown rules, z warm-up, HAC lags, bootstrap) come from `settings.py`.
+- `src/auction_events.py` (no returns): events, tenor mapping, windows, skip flags, the size signal and month-end
+  supply.
+- `src/flowclock.py`: window returns, H6a-c, H7, the supply leg and book engine (`run_book`), metrics, Sharpe
+  comparisons, event paths.
+- `run_all.py::flowclock()`: runs it all inside `python run_all.py` and writes `results.json["flowclock"]`.
+
+**Definitions** (as pre-registered; the module docstrings carry the detail):
+- **Events.** Every nominal fixed-rate coupon auction (new issues and reopenings; TIPS and FRNs out). Tenor = the
+  original term (`original_security_term`) mapped to the nearest of DGS2, 3, 5, 7, 10, 20, 30, ties to the longer.
+- **Windows.** pre = close A-5 to close A; post = close A to close A+5. An event is skipped if its tenor's yield is
+  missing anywhere in A-5..A+5. An event belongs to a sample only if A-5..A+5 lies inside it.
+- **Size signal.** zS uses the 6 prior same-tenor auctions, counted from after any gap of more than one year. If the 6
+  priors are equal, zS = 0 when unchanged and ±3 otherwise; zS is clipped to [-3, 3]. With fewer than 6 priors there
+  is no zS (the event is out of H6c and w = 1).
+- **Two versions of zS.** `zS_post` is known at A (the event's own amount). `zS_pre` is known at A-5: the event's
+  amount only if announced by A-5, otherwise the previous auction's, and priors must also be announced by A-5.
+  `zS_pre` drives H6c and the pre leg's weight; `zS_post` drives the post leg's weight.
+- **Month-end supply.** SA_m = Σ offering × par-bond modified duration over events with A in [T-8, T-4], in
+  $bn × years. zA_m = SA_m z-scored on past months, with SA_m from 1990-01, so zA starts in 1993-01 like z_m.
+
+**Choices made before any auction-window return** (also in the docstrings):
+- **Clusters.** H6 standard errors are clustered by the Monday-Sunday week of A (statsmodels CR1, normal intervals).
+  Yield-change versions (bp) are reported beside them.
+- **Supply-leg sizing.** DV01 = 0.25% × capital / (σ_tenor × √5), where σ is the std of the tenor's own 60 daily
+  yield changes ending the day before entry. The FOMC half-size rule applies per leg on (entry, exit].
+- **Drawdown rule.** One state machine on the strategy's own NAV through the day before entry. Its trigger is
+  2 × √(12 × 1%² [book only] + n × 0.25%²), where n = scheduled supply-leg entries in the trailing 252 bond days.
+- **Notional cap.** Gross open notional ≤ 3× capital; legs entering at the same close are scaled by one common
+  factor.
+- **Costs.** CASH_COST_BP / 2 × |change in net DV01 per tenor| at each close (×2 for the stress test).
+- **Check.** The book engine with the demand leg alone must reproduce `calendar_only` exactly; `run_all.py` stops if
+  it does not.
+- **Hit rate.** Measured per event for the supply leg and per calendar month for the book.
+- **Figure terciles.** Cut on the average rank of `zS_pre`, so the quarter of events with zS = 0 share one tercile.
+
+**Outputs.**
+- `results.json["flowclock"]` has a block for each of `in_sample` and `post_lyz` (2009-01 to 2024-09), plus `oos`
+  (Gate 2 only). Each block holds: `events` (counts; in-sample only), `H6` (H6a, H6b, H6c, `yield_bp`, `by_tenor`),
+  `H7`, `headline3` (`cost_1x` and `cost_2x`: book vs demand leg alone, paired bootstrap by month),
+  `supply_size_vs_calendar`, and `metrics` (book, supply_calendar, supply_size_weighted, demand_alone, the 2× stress
+  versions). The in-sample block also has `event_path`.
+- Tables (`outputs/tables/`): `auction_events_insample.csv`, `flowclock_supply_monthly_insample.csv`,
+  `flowclock_h6_by_tenor_insample.csv`, `flowclock_legs_*_insample.csv`, `equity_curve_flowclock_insample.csv`.
+- Figure: `outputs/figures/auction_event_path.png`, mean path A-10..A+10 by zS tercile, with week-clustered 95% bands.
+- `runs/trials.csv`: each run adds 8 rows (book and supply leg × {in-sample, post-LYZ} × {1×, 2× costs}). The
+  columns keep their names: `H1_*` holds H7 c (book) or H6c β (supply leg), `sharpe_fc` / `sharpe_cal` hold the
+  candidate / its benchmark, and the `note` column says which.
+- Tests: `tests/test_auction_events.py`, `tests/test_flowclock.py`, and the Flow Clock guard in
+  `tests/test_guards.py`.
+
+**Still to do** (pre-registered, not built): the test-window run (Gate 2), the futures version and the volume-based
+capacity estimate (PREREG_FLOWCLOCK.md "What is new", item 4).
 
 ---
 

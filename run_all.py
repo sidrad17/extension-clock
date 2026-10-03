@@ -3,7 +3,9 @@
 `python run_all.py` rebuilds every in-sample number from the committed snapshot (CLAUDE.md rule 4): checksums,
 index rebuild, signals, 10-year cash windows, H1 (+ components, PREREG_ADDENDUM.md (a)-(b)), H4, placebo and luck
 test, required metrics, figures 1-2, outputs/results.json; every run appends to runs/trials.csv (rule 7).
-Dates after IS_END are never read here (rule 2). Phase 3 scope: in-sample, cash bonds only.
+It then runs the Flow Clock (PREREG_FLOWCLOCK.md): auction event table, H6a-c, H7, the supply leg, the book,
+Headline 3, the auction event-path figure (results.json["flowclock"]).
+Dates after IS_END are never read here (rule 2). Scope: in-sample, cash bonds only.
 """
 from __future__ import annotations
 
@@ -17,28 +19,35 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import pandas as pd  # noqa: E402
 
-from config.settings import (ENTRY_OFFSET, EXIT_OFFSET, HEADLINE_TENOR, IS_END, IS_START, PLACEBO_BDAYS,  # noqa: E402
-                             RF_SERIES)
+import config.flowclock as fcs  # noqa: E402
+from config.flowclock import EVENT_PATH, FC_TENORS, POST_LYZ_START, SA_START  # noqa: E402
+from config.settings import (COST_STRESS, ENTRY_OFFSET, EXIT_OFFSET, HEADLINE_TENOR, IS_END, IS_START,  # noqa: E402
+                             PLACEBO_BDAYS, RF_SERIES)
 from src import figures, report  # noqa: E402
+from src.auction_events import build_events, in_sample_mask, month_end_supply  # noqa: E402
 from src.backtest import (month_end_windows, placebo_windows, run_strategy, window_returns,  # noqa: E402
                           window_yield_change_bp)
-from src.bonds import KNOT_YEARS  # noqa: E402
+from src.bonds import KNOT_YEARS, load_curve  # noqa: E402
 from src.calendar import load_calendar  # noqa: E402
+from src.data.auctions import load_auctions  # noqa: E402
 from src.data.fomc import load_fomc_dates  # noqa: E402
 from src.data.fred import load_frame  # noqa: E402
 from src.data.french import load_pension_input  # noqa: E402
 from src.data.snapshot import verify_checksums, verify_or_exit  # noqa: E402
+from src.flowclock import (auction_event_paths, book_metrics, compare_sharpe, demand_legs, event_returns,  # noqa: E402
+                           h6, h7, path_summary, run_book, supply_legs, tercile_by_rank)
 from src.index_rebuild import RebuildConfig, config_dict, run_default  # noqa: E402
 from src.metrics import equity_curves, required_metrics  # noqa: E402
 from src.returns import tenor_returns  # noqa: E402
-from src.risk import RiskConfig  # noqa: E402
-from src.signals import build_signals, pension_pressure  # noqa: E402
+from src.risk import WINDOWS_PER_YEAR, RiskConfig  # noqa: E402
+from src.signals import build_signals, past_zscore, pension_pressure  # noqa: E402
 from src.tests_h import (event_path_summary, event_paths, h1, h1_addendum, h1_components, h4,  # noqa: E402
                          luck_candidates, luck_test, tercile_labels)
-from src.trial_log import assert_gate1, git_state, log_trial, trial_count  # noqa: E402
+from src.trial_log import assert_flowclock_prereg, assert_gate1, git_state, log_trial, trial_count  # noqa: E402
 
-VERSION = "v1 (Phase 3: in-sample, cash bonds)"
-PENDING = ["in_sample.H1_addendum.surprise (Phase 5)",
+VERSION = "v1.1 (Phase 3 + Flow Clock: in-sample, cash bonds)"
+PENDING = ["flowclock.oos (Gate 2 only)", "flowclock futures version and capacity (PREREG_FLOWCLOCK.md, item 4)",
+           "in_sample.H1_addendum.surprise (Phase 5)",
            "in_sample.H2, H3, H5 (Phase 5)", "in_sample.metrics.cash.curve_allocated (Phase 5, with H2)",
            "in_sample.metrics.futures (Phase 4)", "in_sample.risk_rules_on_off, betas, crowding, tails, capacity, "
            "deflated_sharpe (Phase 5)", "in_sample.tips_replication (Phase 6)",
@@ -161,6 +170,9 @@ def insample() -> None:
     cap2 = figures.terciles(res_h1, FIG_DIR / "terciles.png", sample)
     step("figures 1-2 written", t0)
 
+    # Flow Clock (PREREG_FLOWCLOCK.md)
+    fc_block, fc_fig = flowclock(cal, is_months, win, R, Y, strat["calendar_only"], common, git, t0)
+
     # results.json v1
     res = report.skeleton()
     res["meta"].update({"commit": git["commit"], "dirty": git["dirty"],
@@ -178,10 +190,178 @@ def insample() -> None:
     ins["metrics"]["cash"]["equity_curve"] = "outputs/tables/equity_curve_cash_insample.csv"
     ins["event_path"] = ev
     res["figures"] = {"event_path": {"path": "outputs/figures/event_path.png", "caption": cap1},
-                      "terciles": {"path": "outputs/figures/terciles.png", "caption": cap2}}
+                      "terciles": {"path": "outputs/figures/terciles.png", "caption": cap2},
+                      "auction_event_path": fc_fig}
+    res["flowclock"] = fc_block
     res["trials"] = {"count": trial_count()}
     report.write_results(res)
     step(f"wrote outputs/results.json (trials logged so far: {res['trials']['count']})", t0)
+
+
+def flowclock(cal, is_months, win, R, Y, demand, me_common: dict, git: dict, t0: float) -> tuple[dict, dict]:
+    """Flow Clock in-sample (PREREG_FLOWCLOCK.md, src/auction_events.py, src/flowclock.py).
+
+    demand: the month-end calendar_only StrategyResult as already tested (the demand leg alone, Headline 3).
+    me_common: the month-end run_strategy arguments (10-year returns and yields, T-bill, FOMC dates, calendar).
+    """
+    assert_flowclock_prereg()
+    yld = load_frame(FC_TENORS, end=IS_END, index=cal.days, fill=True)
+    ev = build_events(load_auctions(end=IS_END, exclude=None), cal, yld)
+    _, xs = tenor_returns(end=IS_END, tenors={s: s for s in FC_TENORS})
+    ev = ev.join(event_returns(ev, xs, yld))
+    masks = {"in_sample": in_sample_mask(ev, IS_START, IS_END), "post_lyz": in_sample_mask(ev, POST_LYZ_START, IS_END)}
+    step(f"Flow Clock events: {len(ev)} nominal coupon auctions through {IS_END}, "
+         f"{int(masks['in_sample'].sum())} in-sample, {int(masks['post_lyz'].sum())} from {POST_LYZ_START[:7]}", t0)
+
+    sa = month_end_supply(ev, cal, load_curve(end=IS_END), pd.period_range(SA_START, IS_END[:7], freq="M"))
+    sa["zA"] = past_zscore(sa["SA_bn_years"])
+    if sa.loc[is_months, "zA"].isna().any():
+        raise RuntimeError("zA_m undefined inside the in-sample period; the 36-month warm-up is missing")
+
+    traded = ev["window_complete"] & ~ev["skipped"]
+    sup_entries = pd.DatetimeIndex(pd.concat([ev.loc[traded, "pre_entry"], ev.loc[traded, "A"]]))
+    rf = me_common["rf"]
+    bk = dict(excess=xs, yields=yld, rf=rf, fomc_scheduled=me_common["fomc_scheduled"], cal=cal,
+              supply_entries=sup_entries)
+    me = {k: v for k, v in me_common.items() if k not in ("days", "cfg")}
+    cfg1, cfg2 = RiskConfig(), RiskConfig(cost_mult=COST_STRESS)
+    samples = {"in_sample": (IS_START, is_months), "post_lyz": (POST_LYZ_START, is_months[is_months >= pd.Period(
+        POST_LYZ_START, "M")])}
+    blocks, books = {}, {}
+    for key, (start, months) in samples.items():
+        days = cal.days[(cal.days >= pd.Timestamp(start)) & (cal.days <= pd.Timestamp(IS_END))]
+        e = ev[masks[key] & ~ev["skipped"]]
+        dem = demand_legs(win.loc[months], cal)
+        ones = pd.Series(1.0, index=months)
+        dem1 = demand if key == "in_sample" else run_strategy("calendar_only", win.loc[months], ones, days=days,
+                                                              cfg=cfg1, **me)
+        dem2 = run_strategy("calendar_only_cost2x", win.loc[months], ones, days=days, cfg=cfg2, **me)
+        check = run_book("demand_check", dem, days=days, cfg=cfg1, demand_per_year=WINDOWS_PER_YEAR,
+                         unit="month", **{**bk, "supply_entries": None})
+        gap = float((check.daily["excess"] - dem1.daily["excess"]).abs().max())
+        if gap > 1e-12:
+            raise RuntimeError(f"{key}: the book engine with the demand leg alone differs from calendar_only by {gap}")
+        r = {
+            "supply_calendar": run_book("supply_calendar", supply_legs(e, False), days=days, cfg=cfg1, **bk),
+            "supply_size_weighted": run_book("supply_size_weighted", supply_legs(e, True), days=days, cfg=cfg1, **bk),
+            "book": run_book("flowclock_book", pd.concat([dem, supply_legs(e, False)], ignore_index=True), days=days,
+                             cfg=cfg1, demand_per_year=WINDOWS_PER_YEAR, unit="month", **bk),
+            "supply_calendar_cost_2x": run_book("supply_calendar_cost2x", supply_legs(e, False), days=days, cfg=cfg2,
+                                                **bk),
+            "book_cost_2x": run_book("flowclock_book_cost2x", pd.concat([dem, supply_legs(e, False)],
+                                                                        ignore_index=True), days=days, cfg=cfg2,
+                                     demand_per_year=WINDOWS_PER_YEAR, unit="month", **bk),
+        }
+        books[key] = {**r, "demand_alone": dem1}
+        ex = {k: v.daily["excess"] for k, v in r.items()}
+        metrics = {k: book_metrics(v) for k, v in r.items()}
+        metrics["demand_alone"] = required_metrics(dem1)
+        metrics["demand_alone_cost_2x"] = required_metrics(dem2)
+        blocks[key] = {
+            "sample": [str(days[0].date()), str(days[-1].date())],
+            "H6": h6(ev[masks[key]]),
+            "H7": h7(R.loc[months], Y.loc[months], sa.loc[months, "zA"]),
+            "headline3": {"cost_1x": compare_sharpe(ex["book"], dem1.daily["excess"], "book", "demand"),
+                          "cost_2x": compare_sharpe(ex["book_cost_2x"], dem2.daily["excess"], "book", "demand")},
+            "supply_size_vs_calendar": compare_sharpe(ex["supply_size_weighted"], ex["supply_calendar"],
+                                                      "size_weighted", "calendar"),
+            "corr_daily_supply_vs_demand": float(ex["supply_calendar"].corr(dem1.daily["excess"])),
+            "metrics": metrics,
+            "demand_engine_check_max_abs_diff": gap,
+        }
+        step(f"Flow Clock {key}: H6, H7, supply leg, book, Headline 3 ({len(e)} events, {len(months)} months)", t0)
+
+    # trial log (rule 7): the book (Headline 3), the supply leg (secondary), each at 1x and 2x costs, per sample
+    fc_cfg = {"settings": report.settings_dict(), "flowclock": {k: getattr(fcs, k) for k in dir(fcs) if k.isupper()},
+              "risk": asdict(cfg1)}
+    for key, b in blocks.items():
+        for cost_key, cm in (("cost_1x", 1.0), ("cost_2x", COST_STRESS)):
+            sm_ = "supply_calendar" if cm == 1.0 else "supply_calendar_cost_2x"
+            win_label = f"{key}_flowclock" + ("" if cm == 1.0 else "_cost2x")
+            h3 = b["headline3"][cost_key]
+            log_trial({**fc_cfg, "strategy": "flowclock_book", "cost_mult": cm, "sample": key}, win_label, {
+                "strategy": "flowclock_book", "tenor": "DGS10+DGS2-DGS30", "entry": "T-4|A-5,A", "exit": "T|A,A+5",
+                "n": b["H6"]["n_used"], "H1_b": b["H7"]["c"]["b"], "H1_lo": b["H7"]["c"]["ci"][0],
+                "H1_hi": b["H7"]["c"]["ci"][1], "sharpe_fc": h3["sharpe_book"], "sharpe_cal": h3["sharpe_demand"],
+                "note": f"run_all: Flow Clock Headline 3 (PREREG_FLOWCLOCK.md), {key}, {cm:g}x costs; sharpe_fc = "
+                        f"book, sharpe_cal = demand leg alone; H1_* = H7 c"}, git=git)
+            if cm == 1.0:
+                sv = b["supply_size_vs_calendar"]
+                s_fc, s_cal = sv["sharpe_size_weighted"], sv["sharpe_calendar"]
+                note = "sharpe_fc = size-weighted supply leg, sharpe_cal = calendar supply leg"
+            else:
+                s_fc, s_cal = "", b["metrics"][sm_]["sharpe"]
+                note = "sharpe_cal = calendar supply leg (the size-weighted leg is not stress-tested)"
+            log_trial({**fc_cfg, "strategy": "supply_leg", "cost_mult": cm, "sample": key}, win_label, {
+                "strategy": "supply_leg", "tenor": "DGS2-DGS30", "entry": "A-5,A", "exit": "A,A+5",
+                "n": b["H6"]["n_used"], "H1_b": b["H6"]["H6c"]["b"], "H1_lo": b["H6"]["H6c"]["ci"][0],
+                "H1_hi": b["H6"]["H6c"]["ci"][1], "sharpe_fc": s_fc, "sharpe_cal": s_cal,
+                "note": f"run_all: Flow Clock supply leg (PREREG_FLOWCLOCK.md), {key}, {cm:g}x costs; {note}; "
+                        f"H1_* = H6c beta"}, git=git)
+    step("Flow Clock: logged 8 rows to runs/trials.csv", t0)
+
+    # tables
+    ins = masks["in_sample"]
+    tab = ev.copy()
+    tab["in_sample"], tab["post_lyz"] = masks["in_sample"], masks["post_lyz"]
+    ret_cols = ["R_pre", "R_post", "LS", "dy_pre_bp", "dy_post_bp", "LS_bp"]
+    tab.loc[~ins, ret_cols] = float("nan")
+    for c in ["A", "announced", "pre_entry", "post_exit"]:
+        tab[c] = tab[c].dt.date
+    report.write_table(tab.set_index("event_id"), "auction_events_insample.csv")
+    sup = sa.loc[is_months].assign(R_pct=R, neg_dy_bp=Y)
+    for c in ["T", "from", "to"]:
+        sup[c] = sup[c].dt.date
+    report.write_table(sup.rename_axis("month"), "flowclock_supply_monthly_insample.csv")
+    report.write_table(pd.DataFrame({t: {**{k: v for k, v in d.items() if k not in ("R_pre", "R_post")},
+                                         "R_pre_mean": d["R_pre"]["b"], "R_pre_t": d["R_pre"]["t"],
+                                         "R_post_mean": d["R_post"]["b"], "R_post_t": d["R_post"]["t"]}
+                                     for t, d in blocks["in_sample"]["H6"]["by_tenor"].items()}).T.rename_axis("tenor"),
+                       "flowclock_h6_by_tenor_insample.csv")
+    b_is = books["in_sample"]
+    for k in ("book", "supply_calendar", "supply_size_weighted"):
+        lg = b_is[k].legs.copy()
+        lg["entry"], lg["exit"] = lg["entry"].dt.date, lg["exit"].dt.date
+        report.write_table(lg.set_index("leg_id"), f"flowclock_legs_{k}_insample.csv")
+    eq = {}
+    for k in ("book", "supply_calendar", "supply_size_weighted", "demand_alone"):
+        eq[f"nav_total_{k}"] = (1.0 + b_is[k].daily["total"]).cumprod()
+        eq[f"nav_excess_{k}"] = (1.0 + b_is[k].daily["excess"]).cumprod()
+    report.write_table(pd.DataFrame(eq).rename_axis("date"), "equity_curve_flowclock_insample.csv")
+
+    # figure: auction event path, A-10..A+10, by size-signal tercile (zS known at A-5)
+    lo, hi = EVENT_PATH
+    fig_ev = ev[ins & ~ev["skipped"] & ev["zS_pre"].notna()]
+    rp, dp = auction_event_paths(fig_ev, xs, yld, cal, lo, hi, IS_START, IS_END)
+    by_id = ev.set_index("event_id")
+    lab = tercile_by_rank(by_id.loc[rp.index, "zS_pre"])
+    ret_sum, dy_sum = path_summary(rp, lab, by_id["week"]), path_summary(dp, lab, by_id["week"])
+    sample = f"{IS_START[:7]} to {IS_END[:7]}"
+    cap = figures.auction_event_path(ret_sum, dy_sum, FIG_DIR / "auction_event_path.png", sample)
+    zr = by_id.loc[rp.index, "zS_pre"]
+    blocks["in_sample"]["event_path"] = {
+        "excess_return_pct": ret_sum, "yield_change_bp": dy_sum,
+        "tercile_zS_ranges": {t: [float(zr[lab == t].min()), float(zr[lab == t].max())] for t in ("low", "mid", "high")},
+        "note": "events with A-10..A+10 inside the in-sample period and zS known at A-5; terciles by average rank"}
+    step("Flow Clock tables and auction_event_path.png written", t0)
+
+    att = ev.attrs
+    e_is = ev[ins]
+    blocks["in_sample"]["events"] = {
+        "n_nominal_coupon_auctions_through_is_end": int(len(ev)), "n_tips_dropped": att["n_tips_dropped"],
+        "n_frn_dropped": att["n_frn_dropped"], "n_not_bond_day": att["n_not_bond_day"],
+        "n_in_sample": int(ins.sum()), "n_skipped": int(e_is["skipped"].sum()),
+        "skipped": e_is.loc[e_is["skipped"], "event_id"].tolist(),
+        "n_straddling_is_end": int((~ev["window_complete"] & (ev["A"] >= pd.Timestamp(IS_START))).sum()),
+        "by_tenor": {k: int(v) for k, v in e_is["tenor"].value_counts().sort_index().items()},
+        "zS_pre_flags": {k: int(v) for k, v in e_is["zS_pre_flag"].value_counts().sort_index().items()},
+        "zS_post_flags": {k: int(v) for k, v in e_is["zS_post_flag"].value_counts().sort_index().items()},
+        "S_pre_source": {(k or "none"): int(v) for k, v in e_is["S_pre_source"].value_counts().sort_index().items()},
+        "SA_months_with_events_share": float((sa.loc[is_months, "n_events"] > 0).mean()),
+    }
+    block = {"prereg": {"file": "PREREG_FLOWCLOCK.md", "tag": "prereg-flowclock", "commit": "8c41154"},
+             **blocks, "oos": {"status": "test window runs once, after gate2-frozen"}}
+    return block, {"path": "outputs/figures/auction_event_path.png", "caption": cap}
 
 
 def main() -> None:

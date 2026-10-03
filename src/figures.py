@@ -1,6 +1,7 @@
 """Note figures (CLAUDE.md section 8): 300 dpi, readable in greyscale, captions built from the numbers they show.
 
 Phase 3: 1. event_path.png (page-1 hero exhibit) and 2. terciles.png. The rest arrive in Phase 5.
+Flow Clock (PREREG_FLOWCLOCK.md): auction_event_path.png, A-10..A+10 by size-signal tercile.
 Each function returns the one-sentence caption that report.py stores in results.json beside the figure path.
 """
 from __future__ import annotations
@@ -60,6 +61,48 @@ def event_path(summary: dict, path: Path, sample: str, entry_k: int = -4) -> str
     return (f"From T-4 to T the 10-year excess return path rises {run['high']:.3f}% in high-demand months and "
             f"{run['low']:.3f}% in low-demand months; from T to T+{h['k'][i_end]} it moves {after['high']:+.3f}% "
             f"and {after['low']:+.3f}% (means, 95% bands, {sample}).")
+
+
+AUCTION_LABEL = {"high": "large vs recent auctions", "mid": "middle", "low": "small vs recent auctions"}
+
+
+def auction_event_path(ret: dict, dy: dict, path: Path, sample: str, pre_k: int = -5, post_k: int = 5) -> str:
+    """Flow Clock figure: mean cumulative excess return (left) and yield change (right) from A-10 to A+10 by
+    size-signal tercile (zS known at A-5), 95% bands clustered by week (src/flowclock.py::path_summary)."""
+    fig, axes = plt.subplots(1, 2, figsize=(9.0, 3.8))
+    for ax, summ, ylab in ((axes[0], ret, "cumulative excess return since A-10 (%)"),
+                           (axes[1], dy, "yield change since A-10 (bp)")):
+        for t in ("low", "mid", "high"):
+            s, st = summ[t], STYLE[t]
+            ax.fill_between(s["k"], s["lo"], s["hi"], color=st["fill"], alpha=st["alpha"], lw=0)
+            ax.plot(s["k"], s["mean"], color=st["color"], ls=st["ls"], lw=1.8,
+                    label=f"{AUCTION_LABEL[t]} (n={s['n']})")
+        ax.axvspan(pre_k, 0, color="#ececec", zorder=0)
+        ax.axvspan(0, post_k, color="#f7f7f7", zorder=0)
+        for k in (pre_k, 0, post_k):
+            ax.axvline(k, color=MUTED, lw=0.8)
+        ax.axhline(0, color=MUTED, lw=0.6)
+        ks = ret["high"]["k"]
+        ax.set_xticks(ks[::2])
+        ax.set_xticklabels([("A" if k == 0 else f"A{k:+d}") for k in ks[::2]], fontsize=7)
+        ax.set_ylabel(ylab, fontsize=9, color=INK)
+        _axes_style(ax)
+    ymax = axes[0].get_ylim()[1]
+    axes[0].text(pre_k, ymax, " pre: short", fontsize=8, color=INK, va="top")
+    axes[0].text(0, ymax, " post: long", fontsize=8, color=INK, va="top")
+    axes[0].legend(fontsize=7, frameon=False, loc="lower left")
+    fig.suptitle(f"Treasuries around coupon auctions, by auction size vs the previous six ({sample})",
+                 fontsize=10, x=0.01, ha="left", color=INK)
+    fig.tight_layout()
+    fig.savefig(path, dpi=DPI)
+    plt.close(fig)
+    k = ret["high"]["k"]
+    i_p, i_a, i_q = k.index(pre_k), k.index(0), k.index(post_k)
+    pre = {t: ret[t]["mean"][i_a] - ret[t]["mean"][i_p] for t in ("high", "low")}
+    post = {t: ret[t]["mean"][i_q] - ret[t]["mean"][i_a] for t in ("high", "low")}
+    return (f"From A-5 to A the excess return path moves {pre['high']:+.3f}% for auctions large vs recent ones and "
+            f"{pre['low']:+.3f}% for small ones; from A to A+5 it moves {post['high']:+.3f}% and "
+            f"{post['low']:+.3f}% (means, 95% bands clustered by week, {sample}).")
 
 
 def terciles(h1_res: dict, path: Path, sample: str) -> str:

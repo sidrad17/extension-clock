@@ -34,7 +34,8 @@ def settings_dict() -> dict:
 
 
 def skeleton() -> dict:
-    """The results.json layout of CLAUDE.md section 8, plus H1_addendum (PREREG_ADDENDUM.md) and figures."""
+    """The results.json layout of CLAUDE.md section 8, plus H1_addendum (PREREG_ADDENDUM.md), flowclock
+    (PREREG_FLOWCLOCK.md, CLAUDE.md section 13) and figures."""
     empty_h1_add = {"refunding_dummy": {}, "within_refunding": {}, "within_other": {}, "surprise": {}}
     return {
         "meta": {"commit": "", "dirty": None, "generated_utc": "", "snapshot_checksums_ok": None,
@@ -54,6 +55,7 @@ def skeleton() -> dict:
         },
         "post_publication": {"H1": {}, "H1_addendum": dict(empty_h1_add), "H4": {}, "metrics": {}},
         "oos": {"ran_utc": None, "commit": None, "H1": {}, "H1_addendum": dict(empty_h1_add), "H4": {}, "metrics": {}},
+        "flowclock": {},
         "figures": {},
         "trials": {"count": 0},
     }

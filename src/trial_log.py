@@ -24,6 +24,8 @@ TRIAL_COLUMNS = ["timestamp_utc", "git_commit", "dirty", "config_hash", "window"
 GATE1_TAG = "gate1-prereg"
 GATE2_TAG = "gate2-frozen"
 PREREG_FILES = ["HYPOTHESIS.md", "config/settings.py"]
+FLOWCLOCK_TAG = "prereg-flowclock"
+FLOWCLOCK_FILES = ["PREREG_FLOWCLOCK.md", "PREREG_ADDENDUM.md", "HYPOTHESIS.md", "config/settings.py"]
 
 
 class GateError(RuntimeError):
@@ -70,6 +72,21 @@ def assert_gate1() -> None:
         raise GateError(f"Gate 1: {', '.join(PREREG_FILES)} differ from {GATE1_TAG}; they are locked.")
 
 
+def _flowclock_changed() -> bool:
+    return bool(_git("diff", FLOWCLOCK_TAG, "--", *FLOWCLOCK_FILES).strip())
+
+
+def assert_flowclock_prereg() -> None:
+    """PREREG_FLOWCLOCK.md: no auction-window return before the prereg-flowclock tag; the pre-registration files
+    (that file, PREREG_ADDENDUM.md, HYPOTHESIS.md, config/settings.py) unchanged since the tag."""
+    if not dev_mode():
+        return
+    if FLOWCLOCK_TAG not in _tags():
+        raise GateError(f"Flow Clock: tag {FLOWCLOCK_TAG!r} not found; no auction-window return before it.")
+    if _flowclock_changed():
+        raise GateError(f"Flow Clock: {', '.join(FLOWCLOCK_FILES)} differ from {FLOWCLOCK_TAG}; they are locked.")
+
+
 def assert_gate2() -> None:
     """Rule 2: dates after IS_END only when HEAD carries gate2-frozen and the working tree is clean."""
     if not dev_mode():
@@ -111,7 +128,12 @@ def trial_count(path=TRIALS_CSV) -> int:
 
 def log_trial(cfg: dict, window: str, results: dict, git: dict | None = None, path=TRIALS_CSV) -> dict:
     """Append one row to runs/trials.csv (CLAUDE.md 7.14). `results` supplies strategy, tenor, entry, exit, n,
-    H1_b, H1_lo, H1_hi, sharpe_fc, sharpe_cal and note; `git` is the state captured at the start of the run."""
+    H1_b, H1_lo, H1_hi, sharpe_fc, sharpe_cal and note; `git` is the state captured at the start of the run.
+
+    Flow Clock rows (window "*_flowclock*") keep the same columns: H1_b/lo/hi hold that row's pre-registered slope
+    (H7 c for the book, H6c beta for the supply leg), sharpe_fc the candidate's net Sharpe (the book; the
+    size-weighted supply leg) and sharpe_cal its benchmark's (the demand leg alone; the calendar supply leg). The
+    note says which."""
     git = git or git_state()
     row = {"timestamp_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
            "git_commit": git["commit"], "dirty": git["dirty"], "config_hash": config_hash(cfg), "window": window}
