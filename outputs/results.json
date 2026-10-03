@@ -1,15 +1,14 @@
 {
   "meta": {
-    "commit": "0a76edc",
+    "commit": "2dff0f4",
     "dirty": false,
-    "generated_utc": "2026-10-03T17:11:59Z",
+    "generated_utc": "2026-10-03T18:52:14Z",
     "snapshot_checksums_ok": true,
     "settings_hash": "4fc4ac187ed4",
-    "version": "v2 (Phase 5: in-sample, cash bonds; month-end leg and Flow Clock)",
+    "version": "v3 (Phase 4: in-sample; cash and futures; month-end leg and Flow Clock)",
     "pending": [
       "oos and flowclock.oos (Gate 2 only)",
-      "in_sample.metrics.futures and the futures layer (Phase 4)",
-      "flowclock futures version and its volume-based capacity (PREREG_FLOWCLOCK.md, item 4)",
+      "flowclock volume-based capacity (PREREG_FLOWCLOCK.md, item 4)",
       "in_sample.tips_replication (Phase 6)",
       "figure 5: test window added and shaded (Gate 2)"
     ],
@@ -1092,7 +1091,70 @@
         },
         "equity_curve": "outputs/tables/equity_curve_cash_insample.csv"
       },
-      "futures": {}
+      "futures": {
+        "calendar_only_zn": {
+          "period": [
+            "2010-07-01",
+            "2024-09-30"
+          ],
+          "years": 14.2533,
+          "ann_return_pct": 3.78751,
+          "ann_excess_return_pct": 2.56162,
+          "vol_pct": 3.31534,
+          "sharpe": 0.785267,
+          "sharpe_gross": 0.863534,
+          "max_drawdown_pct": 6.66504,
+          "max_drawdown_excess_pct": 6.70409,
+          "turnover_x_per_year": 36.8674,
+          "hit_rate": 0.621302,
+          "worst_window": {
+            "month": "2011-06",
+            "net_pnl_pct": -3.61157
+          },
+          "n_windows": 169,
+          "mean_window_net_pnl_pct": 0.217931,
+          "cost_pct_per_year": 0.258552,
+          "mean_notional_x_capital": 1.55468,
+          "n_notional_capped": 2,
+          "n_fomc_halved": 34,
+          "n_drawdown_halved": 0
+        },
+        "flowclock_supply_calendar": {
+          "period": [
+            "2010-07-01",
+            "2024-09-30"
+          ],
+          "years": 14.2533,
+          "ann_return_pct": 1.99477,
+          "ann_excess_return_pct": 0.789994,
+          "vol_pct": 2.88727,
+          "sharpe": 0.289016,
+          "sharpe_gross": 0.535959,
+          "max_drawdown_pct": 6.34548,
+          "max_drawdown_excess_pct": 6.47256,
+          "turnover_x_per_year": 167.516,
+          "hit_rate": 0.526829,
+          "hit_unit": "event",
+          "n_units": 1025,
+          "worst_unit": {
+            "id": "2023-10-11_91282CHT1",
+            "net_pnl_pct": -0.846521
+          },
+          "mean_unit_net_pnl_pct": 0.0114706,
+          "cost_pct_per_year": 0.706392,
+          "n_legs": 2005,
+          "legs_by_kind": {
+            "post": 1024,
+            "pre": 981
+          },
+          "share_days_invested": 0.964095,
+          "mean_gross_notional_x_capital": 1.74539,
+          "max_gross_notional_x_capital": 2.99995,
+          "n_legs_capped": 348,
+          "n_fomc_halved": 325,
+          "n_drawdown_halved": 894
+        }
+      }
     },
     "cost_stress": {
       "cost_mult": 2.0,
@@ -12152,12 +12214,12 @@
         "n_days": 7943,
         "skew": 1.46428,
         "kurtosis": 78.9422,
-        "n_trials": 528,
-        "n_trial_sharpes": 1046,
-        "var_trial_sharpe_ann": 0.0294313,
-        "sr0_ann": 0.526482,
-        "dsr": 0.603522,
-        "z": 0.262474,
+        "n_trials": 510,
+        "n_trial_sharpes": 1010,
+        "var_trial_sharpe_ann": 0.0241368,
+        "sr0_ann": 0.475166,
+        "dsr": 0.710414,
+        "z": 0.554596,
         "psr_vs_zero": 0.999442
       },
       "calendar_only": {
@@ -12165,12 +12227,12 @@
         "n_days": 7943,
         "skew": 0.99587,
         "kurtosis": 35.8915,
-        "n_trials": 528,
-        "n_trial_sharpes": 1046,
-        "var_trial_sharpe_ann": 0.0294313,
-        "sr0_ann": 0.526482,
-        "dsr": 0.715657,
-        "z": 0.569989,
+        "n_trials": 510,
+        "n_trial_sharpes": 1010,
+        "var_trial_sharpe_ann": 0.0241368,
+        "sr0_ann": 0.475166,
+        "dsr": 0.805615,
+        "z": 0.861849,
         "psr_vs_zero": 0.999818
       },
       "curve_allocated": {
@@ -12178,12 +12240,12 @@
         "n_days": 7943,
         "skew": 0.857002,
         "kurtosis": 29.398,
-        "n_trials": 528,
-        "n_trial_sharpes": 1046,
-        "var_trial_sharpe_ann": 0.0294313,
-        "sr0_ann": 0.526482,
-        "dsr": 0.821236,
-        "z": 0.920086,
+        "n_trials": 510,
+        "n_trial_sharpes": 1010,
+        "var_trial_sharpe_ann": 0.0241368,
+        "sr0_ann": 0.475166,
+        "dsr": 0.887179,
+        "z": 1.21166,
         "psr_vs_zero": 0.999954
       },
       "flowclock_book": {
@@ -12191,12 +12253,12 @@
         "n_days": 7943,
         "skew": 0.86319,
         "kurtosis": 15.5533,
-        "n_trials": 528,
-        "n_trial_sharpes": 1046,
-        "var_trial_sharpe_ann": 0.0294313,
-        "sr0_ann": 0.526482,
-        "dsr": 0.974264,
-        "z": 1.94752,
+        "n_trials": 510,
+        "n_trial_sharpes": 1010,
+        "var_trial_sharpe_ann": 0.0241368,
+        "sr0_ann": 0.475166,
+        "dsr": 0.987486,
+        "z": 2.24097,
         "psr_vs_zero": 1.0
       },
       "flowclock_supply_calendar": {
@@ -12204,15 +12266,136 @@
         "n_days": 7943,
         "skew": 0.473973,
         "kurtosis": 11.3763,
-        "n_trials": 528,
-        "n_trial_sharpes": 1046,
-        "var_trial_sharpe_ann": 0.0294313,
-        "sr0_ann": 0.526482,
-        "dsr": 0.94028,
-        "z": 1.55713,
+        "n_trials": 510,
+        "n_trial_sharpes": 1010,
+        "var_trial_sharpe_ann": 0.0241368,
+        "sr0_ann": 0.475166,
+        "dsr": 0.96768,
+        "z": 1.84774,
         "psr_vs_zero": 0.999997
       },
-      "note": "Bailey & Lopez de Prado; N = rows in runs/trials.csv, V = variance of every Sharpe in the log (both columns), skew and kurtosis from each strategy's daily excess returns (src/stats.py)"
+      "futures_month_end_zn": {
+        "sharpe_ann": 0.785267,
+        "n_days": 3565,
+        "skew": 0.422138,
+        "kurtosis": 46.7472,
+        "n_trials": 510,
+        "n_trial_sharpes": 1010,
+        "var_trial_sharpe_ann": 0.0241368,
+        "sr0_ann": 0.475166,
+        "dsr": 0.877398,
+        "z": 1.16208,
+        "psr_vs_zero": 0.998373
+      },
+      "futures_supply_calendar": {
+        "sharpe_ann": 0.289016,
+        "n_days": 3565,
+        "skew": 0.479723,
+        "kurtosis": 10.1851,
+        "n_trials": 510,
+        "n_trial_sharpes": 1010,
+        "var_trial_sharpe_ann": 0.0241368,
+        "sr0_ann": 0.475166,
+        "dsr": 0.241071,
+        "z": -0.702863,
+        "psr_vs_zero": 0.862421
+      },
+      "at_total_logged_runs": {
+        "forecast_sized": {
+          "sharpe_ann": 0.57259,
+          "n_days": 7943,
+          "skew": 1.46428,
+          "kurtosis": 78.9422,
+          "n_trials": 1038,
+          "n_trial_sharpes": 2056,
+          "var_trial_sharpe_ann": 0.0268177,
+          "sr0_ann": 0.534797,
+          "dsr": 0.58517,
+          "z": 0.215138,
+          "psr_vs_zero": 0.999442
+        },
+        "calendar_only": {
+          "sharpe_ann": 0.626699,
+          "n_days": 7943,
+          "skew": 0.99587,
+          "kurtosis": 35.8915,
+          "n_trials": 1038,
+          "n_trial_sharpes": 2056,
+          "var_trial_sharpe_ann": 0.0268177,
+          "sr0_ann": 0.534797,
+          "dsr": 0.699407,
+          "z": 0.522696,
+          "psr_vs_zero": 0.999818
+        },
+        "curve_allocated": {
+          "sharpe_ann": 0.688413,
+          "n_days": 7943,
+          "skew": 0.857002,
+          "kurtosis": 29.398,
+          "n_trials": 1038,
+          "n_trial_sharpes": 2056,
+          "var_trial_sharpe_ann": 0.0268177,
+          "sr0_ann": 0.534797,
+          "dsr": 0.808625,
+          "z": 0.872839,
+          "psr_vs_zero": 0.999954
+        },
+        "flowclock_book": {
+          "sharpe_ann": 0.867038,
+          "n_days": 7943,
+          "skew": 0.86319,
+          "kurtosis": 15.5533,
+          "n_trials": 1038,
+          "n_trial_sharpes": 2056,
+          "var_trial_sharpe_ann": 0.0268177,
+          "sr0_ann": 0.534797,
+          "dsr": 0.971281,
+          "z": 1.89997,
+          "psr_vs_zero": 1.0
+        },
+        "flowclock_supply_calendar": {
+          "sharpe_ann": 0.80144,
+          "n_days": 7943,
+          "skew": 0.473973,
+          "kurtosis": 11.3763,
+          "n_trials": 1038,
+          "n_trial_sharpes": 2056,
+          "var_trial_sharpe_ann": 0.0268177,
+          "sr0_ann": 0.534797,
+          "dsr": 0.934483,
+          "z": 1.51004,
+          "psr_vs_zero": 0.999997
+        },
+        "futures_month_end_zn": {
+          "sharpe_ann": 0.785267,
+          "n_days": 3565,
+          "skew": 0.422138,
+          "kurtosis": 46.7472,
+          "n_trials": 1038,
+          "n_trial_sharpes": 2056,
+          "var_trial_sharpe_ann": 0.0268177,
+          "sr0_ann": 0.534797,
+          "dsr": 0.826036,
+          "z": 0.938615,
+          "psr_vs_zero": 0.998373
+        },
+        "futures_supply_calendar": {
+          "sharpe_ann": 0.289016,
+          "n_days": 3565,
+          "skew": 0.479723,
+          "kurtosis": 10.1851,
+          "n_trials": 1038,
+          "n_trial_sharpes": 2056,
+          "var_trial_sharpe_ann": 0.0268177,
+          "sr0_ann": 0.534797,
+          "dsr": 0.176699,
+          "z": -0.928017,
+          "psr_vs_zero": 0.862421
+        }
+      },
+      "N_distinct_variants": 510,
+      "N_total_logged_runs": 1038,
+      "note": "Bailey & Lopez de Prado (src/stats.py). Headline (one entry per strategy): N = distinct variants tested (distinct config_hash in runs/trials.csv), V = variance of their Sharpes (both columns, latest row per config_hash). at_total_logged_runs: N = every row, V over every row (the Phase 5 rule). Skew and kurtosis from each strategy's daily excess returns (CLAUDE.md section 15)"
     },
     "event_path": {
       "low": {
@@ -17716,6 +17899,783 @@
     }
   },
   "trials": {
-    "count": 528
+    "count": 1038,
+    "total_logged_runs": 1038,
+    "distinct_variants": 510,
+    "n_configs_with_differing_sharpes": 0,
+    "rule": "count = total logged runs = rows of runs/trials.csv (never deleted); distinct variants = distinct config_hash, N of the headline Deflated Sharpe (CLAUDE.md section 15)"
+  },
+  "futures": {
+    "status": "computed from the derived tables outputs/tables/futures_*; raw Databento data stays in data/cache/ (CLAUDE.md section 15)",
+    "sample": [
+      "2010-07-01",
+      "2024-09-30"
+    ],
+    "years": 14.2533,
+    "rules": "CLAUDE.md section 15; src/futures.py; src/data/databento_futures.py",
+    "contracts": {
+      "month_end": "ZN",
+      "supply": {
+        "DGS2": "ZT",
+        "DGS3": "ZT",
+        "DGS5": "ZF",
+        "DGS7": "ZN",
+        "DGS10": "TN",
+        "DGS20": "ZB",
+        "DGS30": "UB"
+      },
+      "fallback": {
+        "TN": "ZN",
+        "UB": "ZB"
+      }
+    },
+    "costs": {
+      "per_contract_round_trip": "1 tick + $2",
+      "stress_mult": 2.0
+    },
+    "data": {
+      "source": "Databento GLBX.MDP3: statistics (settlement), ohlcv-1d (volume), definition (monthly snapshots)",
+      "pull_window": {
+        "start": "2010-06-06",
+        "end": {
+          "statistics": "2024-10-01T12:00",
+          "ohlcv-1d": "2024-10-01"
+        },
+        "trade_dates_kept_through": "2024-09-30"
+      },
+      "n_settlements": 71336,
+      "n_contracts": 343,
+      "coverage_by_root": {
+        "TN": {
+          "first": "2016-01-08",
+          "last": "2024-09-30",
+          "n": 6778
+        },
+        "UB": {
+          "first": "2010-06-04",
+          "last": "2024-09-30",
+          "n": 11263
+        },
+        "ZB": {
+          "first": "2010-06-04",
+          "last": "2024-09-30",
+          "n": 11262
+        },
+        "ZF": {
+          "first": "2010-06-04",
+          "last": "2024-09-30",
+          "n": 14018
+        },
+        "ZN": {
+          "first": "2010-06-04",
+          "last": "2024-09-30",
+          "n": 13999
+        },
+        "ZT": {
+          "first": "2010-06-04",
+          "last": "2024-09-30",
+          "n": 14016
+        }
+      },
+      "n_definition_snapshots": 176,
+      "point_value_usd": {
+        "TN": 1000.0,
+        "UB": 1000.0,
+        "ZB": 1000.0,
+        "ZF": 1000.0,
+        "ZN": 1000.0,
+        "ZT": 2000.0
+      },
+      "tick_history": {
+        "TN": [
+          {
+            "from_snapshot": "2016-02-01",
+            "tick_size": [
+              0.015625
+            ]
+          }
+        ],
+        "UB": [
+          {
+            "from_snapshot": "2010-06-07",
+            "tick_size": [
+              0.03125
+            ]
+          }
+        ],
+        "ZB": [
+          {
+            "from_snapshot": "2010-06-07",
+            "tick_size": [
+              0.03125
+            ]
+          }
+        ],
+        "ZF": [
+          {
+            "from_snapshot": "2010-06-07",
+            "tick_size": [
+              0.0078125
+            ]
+          }
+        ],
+        "ZN": [
+          {
+            "from_snapshot": "2010-06-07",
+            "tick_size": [
+              0.015625
+            ]
+          }
+        ],
+        "ZT": [
+          {
+            "from_snapshot": "2010-06-07",
+            "tick_size": [
+              0.0078125
+            ]
+          },
+          {
+            "from_snapshot": "2019-01-14",
+            "tick_size": [
+              0.00390625
+            ]
+          }
+        ]
+      },
+      "first_sizable_entry": {
+        "month_end": {
+          "ZN": "2010-08-25"
+        },
+        "supply": {
+          "ZT": "2010-08-17",
+          "TN": "2016-04-06",
+          "UB": "2010-09-01",
+          "ZF": "2010-08-18",
+          "ZN": "2010-08-19",
+          "ZB": "2020-05-13"
+        }
+      },
+      "alignment": {
+        "root": "ZN",
+        "n_days": 3577,
+        "corr_dsettle_neg_dy10_by_lag": {
+          "-1": -0.0112458,
+          "0": 0.960657,
+          "1": -0.00510937
+        },
+        "note": "lag k: corr(settlement change on t, -dy10 on t + k); k = 0 should dominate if ts_ref is the trade date",
+        "known_dates": {
+          "2016-11-09": {
+            "2016-11-08": {
+              "contract": "ZNZ2016",
+              "dsettle_usd_per_contract": -343.75,
+              "dy10_bp": 5.0
+            },
+            "2016-11-09": {
+              "contract": "ZNZ2016",
+              "dsettle_usd_per_contract": -1468.75,
+              "dy10_bp": 19.0
+            },
+            "2016-11-10": {
+              "contract": "ZNZ2016",
+              "dsettle_usd_per_contract": -468.75,
+              "dy10_bp": 8.0
+            }
+          },
+          "2020-03-09": {
+            "2020-03-06": {
+              "contract": "ZNM2020",
+              "dsettle_usd_per_contract": 1390.62,
+              "dy10_bp": -18.0
+            },
+            "2020-03-09": {
+              "contract": "ZNM2020",
+              "dsettle_usd_per_contract": 1531.25,
+              "dy10_bp": -20.0
+            },
+            "2020-03-10": {
+              "contract": "ZNM2020",
+              "dsettle_usd_per_contract": -1828.12,
+              "dy10_bp": 22.0
+            }
+          },
+          "2022-11-10": {
+            "2022-11-09": {
+              "contract": "ZNZ2022",
+              "dsettle_usd_per_contract": 46.875,
+              "dy10_bp": -2.0
+            },
+            "2022-11-10": {
+              "contract": "ZNZ2022",
+              "dsettle_usd_per_contract": 2187.5,
+              "dy10_bp": -30.0
+            },
+            "2022-11-14": {
+              "contract": "ZNZ2022",
+              "dsettle_usd_per_contract": -390.625,
+              "dy10_bp": 6.0
+            }
+          }
+        }
+      },
+      "bond_days_without_any_settlement": {
+        "TN": [
+          "2020-02-27",
+          "2020-06-30"
+        ],
+        "UB": [
+          "2020-02-27",
+          "2020-06-30"
+        ],
+        "ZB": [
+          "2020-02-27",
+          "2020-06-30"
+        ],
+        "ZF": [
+          "2020-02-27",
+          "2020-06-30"
+        ],
+        "ZN": [
+          "2020-02-27",
+          "2020-06-30"
+        ],
+        "ZT": [
+          "2020-02-27",
+          "2020-06-30"
+        ]
+      }
+    },
+    "month_end_zn": {
+      "metrics": {
+        "period": [
+          "2010-07-01",
+          "2024-09-30"
+        ],
+        "years": 14.2533,
+        "ann_return_pct": 3.78751,
+        "ann_excess_return_pct": 2.56162,
+        "vol_pct": 3.31534,
+        "sharpe": 0.785267,
+        "sharpe_gross": 0.863534,
+        "max_drawdown_pct": 6.66504,
+        "max_drawdown_excess_pct": 6.70409,
+        "turnover_x_per_year": 36.8674,
+        "hit_rate": 0.621302,
+        "worst_window": {
+          "month": "2011-06",
+          "net_pnl_pct": -3.61157
+        },
+        "n_windows": 169,
+        "mean_window_net_pnl_pct": 0.217931,
+        "cost_pct_per_year": 0.258552,
+        "mean_notional_x_capital": 1.55468,
+        "n_notional_capped": 2,
+        "n_fomc_halved": 34,
+        "n_drawdown_halved": 0
+      },
+      "metrics_cost_2x": {
+        "period": [
+          "2010-07-01",
+          "2024-09-30"
+        ],
+        "years": 14.2533,
+        "ann_return_pct": 3.51956,
+        "ann_excess_return_pct": 2.29682,
+        "vol_pct": 3.31506,
+        "sharpe": 0.706754,
+        "sharpe_gross": 0.863534,
+        "max_drawdown_pct": 6.90196,
+        "max_drawdown_excess_pct": 6.94091,
+        "turnover_x_per_year": 36.8674,
+        "hit_rate": 0.591716,
+        "worst_window": {
+          "month": "2011-06",
+          "net_pnl_pct": -3.63783
+        },
+        "n_windows": 169,
+        "mean_window_net_pnl_pct": 0.196125,
+        "cost_pct_per_year": 0.517105,
+        "mean_notional_x_capital": 1.55468,
+        "n_notional_capped": 2,
+        "n_fomc_halved": 34,
+        "n_drawdown_halved": 0
+      },
+      "legs": {
+        "n_legs": 171,
+        "n_traded": 169,
+        "status": {
+          "no_dv01": 1,
+          "no_settle": 1,
+          "ok": 169
+        },
+        "by_product": {
+          "ZN": {
+            "n_legs": 169,
+            "n_fallback": 0,
+            "contracts_median": 118.0,
+            "dv01_contract_median": 77.3436,
+            "dv01_r2_median": 0.923976,
+            "dv01_r2_min": 0.797901,
+            "dv01_n_min": 56,
+            "tick_value_entry": [
+              15.625
+            ]
+          }
+        },
+        "by_tenor_product": {
+          "DGS10->ZN": 169
+        },
+        "n_contracts_capped": 2,
+        "realised_over_target_dv01": {
+          "median": 0.999867,
+          "p5": 0.994743,
+          "p95": 1.00488
+        },
+        "n_distinct_contracts": 57
+      },
+      "legs_cost_2x": {
+        "n_legs": 171,
+        "n_traded": 169,
+        "status": {
+          "no_dv01": 1,
+          "no_settle": 1,
+          "ok": 169
+        },
+        "by_product": {
+          "ZN": {
+            "n_legs": 169,
+            "n_fallback": 0,
+            "contracts_median": 118.0,
+            "dv01_contract_median": 77.3436,
+            "dv01_r2_median": 0.923976,
+            "dv01_r2_min": 0.797901,
+            "dv01_n_min": 56,
+            "tick_value_entry": [
+              15.625
+            ]
+          }
+        },
+        "by_tenor_product": {
+          "DGS10->ZN": 169
+        },
+        "n_contracts_capped": 2,
+        "realised_over_target_dv01": {
+          "median": 0.999867,
+          "p5": 0.994743,
+          "p95": 1.00488
+        },
+        "n_distinct_contracts": 57
+      },
+      "vs_cash_calendar_only": {
+        "cash_calendar_only_slice": {
+          "period": [
+            "2010-07-01",
+            "2024-09-30"
+          ],
+          "years": 14.2533,
+          "ann_excess_return_pct": 2.26403,
+          "vol_pct": 3.24684,
+          "sharpe": 0.710957,
+          "max_drawdown_excess_pct": 5.5177,
+          "ann_return_pct": 3.48639,
+          "max_drawdown_pct": 5.46161
+        },
+        "sharpe_futures_vs_cash": {
+          "sharpe_futures": 0.785267,
+          "sharpe_cash": 0.710957,
+          "diff": 0.0743106,
+          "ci": [
+            -0.0893201,
+            0.226729
+          ],
+          "p_le_0": 0.1852,
+          "n_months": 171,
+          "n_boot": 10000,
+          "seed": 7
+        },
+        "corr_daily_excess": 0.950308,
+        "windows_both": 169,
+        "corr_window_net_pnl": 0.953355,
+        "mean_window_net_pnl_pct": {
+          "futures": 0.217931,
+          "cash": 0.18756
+        },
+        "note": "cash calendar_only (10-year par bond) is the full in-sample run sliced to the futures days; descriptive"
+      }
+    },
+    "supply_calendar": {
+      "metrics": {
+        "period": [
+          "2010-07-01",
+          "2024-09-30"
+        ],
+        "years": 14.2533,
+        "ann_return_pct": 1.99477,
+        "ann_excess_return_pct": 0.789994,
+        "vol_pct": 2.88727,
+        "sharpe": 0.289016,
+        "sharpe_gross": 0.535959,
+        "max_drawdown_pct": 6.34548,
+        "max_drawdown_excess_pct": 6.47256,
+        "turnover_x_per_year": 167.516,
+        "hit_rate": 0.526829,
+        "hit_unit": "event",
+        "n_units": 1025,
+        "worst_unit": {
+          "id": "2023-10-11_91282CHT1",
+          "net_pnl_pct": -0.846521
+        },
+        "mean_unit_net_pnl_pct": 0.0114706,
+        "cost_pct_per_year": 0.706392,
+        "n_legs": 2005,
+        "legs_by_kind": {
+          "post": 1024,
+          "pre": 981
+        },
+        "share_days_invested": 0.964095,
+        "mean_gross_notional_x_capital": 1.74539,
+        "max_gross_notional_x_capital": 2.99995,
+        "n_legs_capped": 348,
+        "n_fomc_halved": 325,
+        "n_drawdown_halved": 894
+      },
+      "metrics_cost_2x": {
+        "period": [
+          "2010-07-01",
+          "2024-09-30"
+        ],
+        "years": 14.2533,
+        "ann_return_pct": 1.34082,
+        "ann_excess_return_pct": 0.143746,
+        "vol_pct": 2.45796,
+        "sharpe": 0.0711606,
+        "sharpe_gross": 0.603251,
+        "max_drawdown_pct": 7.88861,
+        "max_drawdown_excess_pct": 8.55744,
+        "turnover_x_per_year": 154.262,
+        "hit_rate": 0.508772,
+        "hit_unit": "event",
+        "n_units": 1026,
+        "worst_unit": {
+          "id": "2012-03-27_912828SL5",
+          "net_pnl_pct": -0.726886
+        },
+        "mean_unit_net_pnl_pct": 0.00231878,
+        "cost_pct_per_year": 1.29437,
+        "n_legs": 2011,
+        "legs_by_kind": {
+          "post": 1025,
+          "pre": 986
+        },
+        "share_days_invested": 0.964095,
+        "mean_gross_notional_x_capital": 1.60793,
+        "max_gross_notional_x_capital": 2.99995,
+        "n_legs_capped": 340,
+        "n_fomc_halved": 327,
+        "n_drawdown_halved": 1429
+      },
+      "legs": {
+        "n_legs": 2156,
+        "n_traded": 2005,
+        "status": {
+          "capped_to_zero": 129,
+          "no_dv01": 18,
+          "no_settle": 4,
+          "ok": 2005
+        },
+        "by_product": {
+          "TN": {
+            "n_legs": 207,
+            "n_fallback": 0,
+            "contracts_median": 13.0,
+            "dv01_contract_median": 112.408,
+            "dv01_r2_median": 0.942933,
+            "dv01_r2_min": 0.750904,
+            "dv01_n_min": 58,
+            "tick_value_entry": [
+              15.625
+            ]
+          },
+          "UB": {
+            "n_legs": 314,
+            "n_fallback": 0,
+            "contracts_median": 6.0,
+            "dv01_contract_median": 264.594,
+            "dv01_r2_median": 0.941875,
+            "dv01_r2_min": 0.602766,
+            "dv01_n_min": 58,
+            "tick_value_entry": [
+              31.25
+            ]
+          },
+          "ZB": {
+            "n_legs": 106,
+            "n_fallback": 0,
+            "contracts_median": 9.0,
+            "dv01_contract_median": 167.197,
+            "dv01_r2_median": 0.927706,
+            "dv01_r2_min": 0.715167,
+            "dv01_n_min": 58,
+            "tick_value_entry": [
+              31.25
+            ]
+          },
+          "ZF": {
+            "n_legs": 317,
+            "n_fallback": 0,
+            "contracts_median": 28.0,
+            "dv01_contract_median": 48.2112,
+            "dv01_r2_median": 0.938536,
+            "dv01_r2_min": 0.632241,
+            "dv01_n_min": 51,
+            "tick_value_entry": [
+              7.8125
+            ]
+          },
+          "ZN": {
+            "n_legs": 436,
+            "n_fallback": 115,
+            "contracts_median": 19.0,
+            "dv01_contract_median": 77.5646,
+            "dv01_r2_median": 0.942147,
+            "dv01_r2_min": 0.834831,
+            "dv01_n_min": 52,
+            "tick_value_entry": [
+              15.625
+            ]
+          },
+          "ZT": {
+            "n_legs": 625,
+            "n_fallback": 0,
+            "contracts_median": 56.0,
+            "dv01_contract_median": 34.273,
+            "dv01_r2_median": 0.837652,
+            "dv01_r2_min": 0.00484125,
+            "dv01_n_min": 50,
+            "tick_value_entry": [
+              7.8125,
+              15.625
+            ]
+          }
+        },
+        "by_tenor_product": {
+          "DGS10->TN": 207,
+          "DGS10->ZN": 115,
+          "DGS2->ZT": 306,
+          "DGS20->ZB": 106,
+          "DGS3->ZT": 319,
+          "DGS30->UB": 314,
+          "DGS5->ZF": 317,
+          "DGS7->ZN": 321
+        },
+        "n_contracts_capped": 348,
+        "realised_over_target_dv01": {
+          "median": 0.996014,
+          "p5": 0.398221,
+          "p95": 1.0412
+        },
+        "n_distinct_contracts": 280
+      },
+      "legs_cost_2x": {
+        "n_legs": 2156,
+        "n_traded": 2011,
+        "status": {
+          "capped_to_zero": 123,
+          "no_dv01": 18,
+          "no_settle": 4,
+          "ok": 2011
+        },
+        "by_product": {
+          "TN": {
+            "n_legs": 207,
+            "n_fallback": 0,
+            "contracts_median": 10.0,
+            "dv01_contract_median": 112.408,
+            "dv01_r2_median": 0.942933,
+            "dv01_r2_min": 0.750904,
+            "dv01_n_min": 58,
+            "tick_value_entry": [
+              15.625
+            ]
+          },
+          "UB": {
+            "n_legs": 314,
+            "n_fallback": 0,
+            "contracts_median": 4.0,
+            "dv01_contract_median": 264.594,
+            "dv01_r2_median": 0.941875,
+            "dv01_r2_min": 0.602766,
+            "dv01_n_min": 58,
+            "tick_value_entry": [
+              31.25
+            ]
+          },
+          "ZB": {
+            "n_legs": 106,
+            "n_fallback": 0,
+            "contracts_median": 5.0,
+            "dv01_contract_median": 167.197,
+            "dv01_r2_median": 0.927706,
+            "dv01_r2_min": 0.715167,
+            "dv01_n_min": 58,
+            "tick_value_entry": [
+              31.25
+            ]
+          },
+          "ZF": {
+            "n_legs": 318,
+            "n_fallback": 0,
+            "contracts_median": 23.0,
+            "dv01_contract_median": 48.2065,
+            "dv01_r2_median": 0.938304,
+            "dv01_r2_min": 0.632241,
+            "dv01_n_min": 51,
+            "tick_value_entry": [
+              7.8125
+            ]
+          },
+          "ZN": {
+            "n_legs": 439,
+            "n_fallback": 115,
+            "contracts_median": 16.0,
+            "dv01_contract_median": 77.6363,
+            "dv01_r2_median": 0.94215,
+            "dv01_r2_min": 0.834831,
+            "dv01_n_min": 52,
+            "tick_value_entry": [
+              15.625
+            ]
+          },
+          "ZT": {
+            "n_legs": 627,
+            "n_fallback": 0,
+            "contracts_median": 51.0,
+            "dv01_contract_median": 34.273,
+            "dv01_r2_median": 0.83399,
+            "dv01_r2_min": 0.00484125,
+            "dv01_n_min": 50,
+            "tick_value_entry": [
+              7.8125,
+              15.625
+            ]
+          }
+        },
+        "by_tenor_product": {
+          "DGS10->TN": 207,
+          "DGS10->ZN": 115,
+          "DGS2->ZT": 307,
+          "DGS20->ZB": 106,
+          "DGS3->ZT": 320,
+          "DGS30->UB": 314,
+          "DGS5->ZF": 318,
+          "DGS7->ZN": 324
+        },
+        "n_contracts_capped": 340,
+        "realised_over_target_dv01": {
+          "median": 0.99525,
+          "p5": 0.411416,
+          "p95": 1.05201
+        },
+        "n_distinct_contracts": 280
+      },
+      "by_tenor_pnl": {
+        "DGS2": {
+          "n_events": 159,
+          "net_pnl_pct_per_year": 0.402548,
+          "pre_net_pnl_pct_per_year": 0.0629599,
+          "post_net_pnl_pct_per_year": 0.339588,
+          "mean_event_net_pnl_bp_of_capital": 3.60856,
+          "hit_rate": 0.566038,
+          "cost_pct_per_year": 0.218336
+        },
+        "DGS3": {
+          "n_events": 168,
+          "net_pnl_pct_per_year": 0.134774,
+          "pre_net_pnl_pct_per_year": 0.243805,
+          "post_net_pnl_pct_per_year": -0.109031,
+          "mean_event_net_pnl_bp_of_capital": 1.14343,
+          "hit_rate": 0.52381,
+          "cost_pct_per_year": 0.223549
+        },
+        "DGS5": {
+          "n_events": 161,
+          "net_pnl_pct_per_year": 0.308773,
+          "pre_net_pnl_pct_per_year": -0.0079631,
+          "post_net_pnl_pct_per_year": 0.316736,
+          "mean_event_net_pnl_bp_of_capital": 2.73355,
+          "hit_rate": 0.540373,
+          "cost_pct_per_year": 0.0634122
+        },
+        "DGS7": {
+          "n_events": 164,
+          "net_pnl_pct_per_year": -0.148669,
+          "pre_net_pnl_pct_per_year": -0.254836,
+          "post_net_pnl_pct_per_year": 0.106167,
+          "mean_event_net_pnl_bp_of_capital": -1.29208,
+          "hit_rate": 0.481707,
+          "cost_pct_per_year": 0.0713619
+        },
+        "DGS10": {
+          "n_events": 162,
+          "net_pnl_pct_per_year": 0.0191667,
+          "pre_net_pnl_pct_per_year": 0.153152,
+          "post_net_pnl_pct_per_year": -0.133985,
+          "mean_event_net_pnl_bp_of_capital": 0.168634,
+          "hit_rate": 0.54321,
+          "cost_pct_per_year": 0.0658468
+        },
+        "DGS20": {
+          "n_events": 53,
+          "net_pnl_pct_per_year": -0.111774,
+          "pre_net_pnl_pct_per_year": 0.047174,
+          "post_net_pnl_pct_per_year": -0.158948,
+          "mean_event_net_pnl_bp_of_capital": -3.00593,
+          "hit_rate": 0.433962,
+          "cost_pct_per_year": 0.0204353
+        },
+        "DGS30": {
+          "n_events": 158,
+          "net_pnl_pct_per_year": 0.220073,
+          "pre_net_pnl_pct_per_year": 0.230696,
+          "post_net_pnl_pct_per_year": -0.0106235,
+          "mean_event_net_pnl_bp_of_capital": 1.98529,
+          "hit_rate": 0.537975,
+          "cost_pct_per_year": 0.046796
+        }
+      },
+      "vs_cash_supply_calendar": {
+        "cash_supply_calendar_slice": {
+          "period": [
+            "2010-07-01",
+            "2024-09-30"
+          ],
+          "years": 14.2533,
+          "ann_excess_return_pct": 2.14586,
+          "vol_pct": 3.56288,
+          "sharpe": 0.618217,
+          "max_drawdown_excess_pct": 9.49731
+        },
+        "sharpe_futures_vs_cash": {
+          "sharpe_futures": 0.289016,
+          "sharpe_cash": 0.618217,
+          "diff": -0.329201,
+          "ci": [
+            -0.554488,
+            -0.11417
+          ],
+          "p_le_0": 0.9983,
+          "n_months": 171,
+          "n_boot": 10000,
+          "seed": 7
+        },
+        "corr_daily_excess": 0.873159,
+        "note": "cash calendar supply leg is the full in-sample run sliced to the futures days; descriptive"
+      }
+    },
+    "tables": {
+      "legs": "outputs/tables/futures_legs_insample.csv",
+      "daily": "outputs/tables/futures_daily_insample.csv",
+      "checks": "outputs/tables/futures_data_checks_insample.json"
+    }
   }
 }

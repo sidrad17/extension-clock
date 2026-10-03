@@ -1,0 +1,212 @@
+{
+  "source": "Databento GLBX.MDP3: statistics (settlement), ohlcv-1d (volume), definition (monthly snapshots)",
+  "pull_window": {
+    "start": "2010-06-06",
+    "end": {
+      "statistics": "2024-10-01T12:00",
+      "ohlcv-1d": "2024-10-01"
+    },
+    "trade_dates_kept_through": "2024-09-30"
+  },
+  "n_settlements": 71336,
+  "n_contracts": 343,
+  "coverage_by_root": {
+    "TN": {
+      "first": "2016-01-08",
+      "last": "2024-09-30",
+      "n": 6778
+    },
+    "UB": {
+      "first": "2010-06-04",
+      "last": "2024-09-30",
+      "n": 11263
+    },
+    "ZB": {
+      "first": "2010-06-04",
+      "last": "2024-09-30",
+      "n": 11262
+    },
+    "ZF": {
+      "first": "2010-06-04",
+      "last": "2024-09-30",
+      "n": 14018
+    },
+    "ZN": {
+      "first": "2010-06-04",
+      "last": "2024-09-30",
+      "n": 13999
+    },
+    "ZT": {
+      "first": "2010-06-04",
+      "last": "2024-09-30",
+      "n": 14016
+    }
+  },
+  "n_definition_snapshots": 176,
+  "point_value_usd": {
+    "TN": 1000.0,
+    "UB": 1000.0,
+    "ZB": 1000.0,
+    "ZF": 1000.0,
+    "ZN": 1000.0,
+    "ZT": 2000.0
+  },
+  "tick_history": {
+    "TN": [
+      {
+        "from_snapshot": "2016-02-01",
+        "tick_size": [
+          0.015625
+        ]
+      }
+    ],
+    "UB": [
+      {
+        "from_snapshot": "2010-06-07",
+        "tick_size": [
+          0.03125
+        ]
+      }
+    ],
+    "ZB": [
+      {
+        "from_snapshot": "2010-06-07",
+        "tick_size": [
+          0.03125
+        ]
+      }
+    ],
+    "ZF": [
+      {
+        "from_snapshot": "2010-06-07",
+        "tick_size": [
+          0.0078125
+        ]
+      }
+    ],
+    "ZN": [
+      {
+        "from_snapshot": "2010-06-07",
+        "tick_size": [
+          0.015625
+        ]
+      }
+    ],
+    "ZT": [
+      {
+        "from_snapshot": "2010-06-07",
+        "tick_size": [
+          0.0078125
+        ]
+      },
+      {
+        "from_snapshot": "2019-01-14",
+        "tick_size": [
+          0.00390625
+        ]
+      }
+    ]
+  },
+  "first_sizable_entry": {
+    "month_end": {
+      "ZN": "2010-08-25"
+    },
+    "supply": {
+      "ZT": "2010-08-17",
+      "TN": "2016-04-06",
+      "UB": "2010-09-01",
+      "ZF": "2010-08-18",
+      "ZN": "2010-08-19",
+      "ZB": "2020-05-13"
+    }
+  },
+  "alignment": {
+    "root": "ZN",
+    "n_days": 3577,
+    "corr_dsettle_neg_dy10_by_lag": {
+      "-1": -0.0112458,
+      "0": 0.960657,
+      "1": -0.00510937
+    },
+    "note": "lag k: corr(settlement change on t, -dy10 on t + k); k = 0 should dominate if ts_ref is the trade date",
+    "known_dates": {
+      "2016-11-09": {
+        "2016-11-08": {
+          "contract": "ZNZ2016",
+          "dsettle_usd_per_contract": -343.75,
+          "dy10_bp": 5.0
+        },
+        "2016-11-09": {
+          "contract": "ZNZ2016",
+          "dsettle_usd_per_contract": -1468.75,
+          "dy10_bp": 19.0
+        },
+        "2016-11-10": {
+          "contract": "ZNZ2016",
+          "dsettle_usd_per_contract": -468.75,
+          "dy10_bp": 8.0
+        }
+      },
+      "2020-03-09": {
+        "2020-03-06": {
+          "contract": "ZNM2020",
+          "dsettle_usd_per_contract": 1390.62,
+          "dy10_bp": -18.0
+        },
+        "2020-03-09": {
+          "contract": "ZNM2020",
+          "dsettle_usd_per_contract": 1531.25,
+          "dy10_bp": -20.0
+        },
+        "2020-03-10": {
+          "contract": "ZNM2020",
+          "dsettle_usd_per_contract": -1828.12,
+          "dy10_bp": 22.0
+        }
+      },
+      "2022-11-10": {
+        "2022-11-09": {
+          "contract": "ZNZ2022",
+          "dsettle_usd_per_contract": 46.875,
+          "dy10_bp": -2.0
+        },
+        "2022-11-10": {
+          "contract": "ZNZ2022",
+          "dsettle_usd_per_contract": 2187.5,
+          "dy10_bp": -30.0
+        },
+        "2022-11-14": {
+          "contract": "ZNZ2022",
+          "dsettle_usd_per_contract": -390.625,
+          "dy10_bp": 6.0
+        }
+      }
+    }
+  },
+  "bond_days_without_any_settlement": {
+    "TN": [
+      "2020-02-27",
+      "2020-06-30"
+    ],
+    "UB": [
+      "2020-02-27",
+      "2020-06-30"
+    ],
+    "ZB": [
+      "2020-02-27",
+      "2020-06-30"
+    ],
+    "ZF": [
+      "2020-02-27",
+      "2020-06-30"
+    ],
+    "ZN": [
+      "2020-02-27",
+      "2020-06-30"
+    ],
+    "ZT": [
+      "2020-02-27",
+      "2020-06-30"
+    ]
+  }
+}
