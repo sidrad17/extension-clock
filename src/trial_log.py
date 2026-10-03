@@ -1,18 +1,26 @@
 """runs/trials.csv trial logging and Gate 1 / Gate 2 guards (CLAUDE.md 7.14).
 
-Phase 1 implements the guards only (returns.py needs them); log_trial() arrives with the first in-sample run.
 Guards act only when GQH_DEV=1 (team .env); judges' runs are never blocked (CLAUDE.md section 5).
+log_trial() appends one row per tested configuration to runs/trials.csv on EVERY in-sample run (rule 7), whatever
+GQH_DEV says; rows are never deleted, and reruns of an unchanged configuration are logged again (same config_hash).
 """
 from __future__ import annotations
 
+import csv
+import hashlib
+import json
 import os
 import subprocess
+from datetime import datetime, timezone
 
 import pandas as pd
 
 from config.settings import IS_END
 from src.data.snapshot import REPO_ROOT
 
+TRIALS_CSV = REPO_ROOT / "runs" / "trials.csv"
+TRIAL_COLUMNS = ["timestamp_utc", "git_commit", "dirty", "config_hash", "window", "strategy", "tenor", "entry", "exit",
+                 "n", "H1_b", "H1_lo", "H1_hi", "sharpe_fc", "sharpe_cal", "note"]
 GATE1_TAG = "gate1-prereg"
 GATE2_TAG = "gate2-frozen"
 PREREG_FILES = ["HYPOTHESIS.md", "config/settings.py"]
@@ -76,3 +84,44 @@ def guard_end(end) -> None:
     """Call before producing any return or statistic: end=None (no cut-off) or end > IS_END needs Gate 2."""
     if end is None or pd.Timestamp(end) > pd.Timestamp(IS_END):
         assert_gate2()
+
+
+# ------------------------------------------------------------------------------------------------- trial log
+
+def git_state() -> dict:
+    """Commit (short hash) and dirty flag of the working tree; 'unknown' outside a git checkout."""
+    try:
+        return {"commit": _git("rev-parse", "--short", "HEAD").strip(), "dirty": _dirty()}
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return {"commit": "unknown", "dirty": None}
+
+
+def config_hash(cfg: dict) -> str:
+    """Short sha256 of a JSON-serialisable configuration (sorted keys)."""
+    blob = json.dumps(cfg, sort_keys=True, default=str).encode("utf-8")
+    return hashlib.sha256(blob).hexdigest()[:12]
+
+
+def trial_count(path=TRIALS_CSV) -> int:
+    if not path.exists():
+        return 0
+    with open(path, newline="", encoding="utf-8") as f:
+        return max(sum(1 for _ in csv.reader(f)) - 1, 0)
+
+
+def log_trial(cfg: dict, window: str, results: dict, git: dict | None = None, path=TRIALS_CSV) -> dict:
+    """Append one row to runs/trials.csv (CLAUDE.md 7.14). `results` supplies strategy, tenor, entry, exit, n,
+    H1_b, H1_lo, H1_hi, sharpe_fc, sharpe_cal and note; `git` is the state captured at the start of the run."""
+    git = git or git_state()
+    row = {"timestamp_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+           "git_commit": git["commit"], "dirty": git["dirty"], "config_hash": config_hash(cfg), "window": window}
+    for k in TRIAL_COLUMNS[5:]:
+        row[k] = results.get(k, "")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    new = not path.exists() or path.stat().st_size == 0
+    with open(path, "a", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=TRIAL_COLUMNS, lineterminator="\n")
+        if new:
+            w.writeheader()
+        w.writerow(row)
+    return row
