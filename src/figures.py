@@ -1,7 +1,9 @@
 """Note figures (CLAUDE.md section 8): 300 dpi, readable in greyscale, captions built from the numbers they show.
 
-Phase 3: 1. event_path.png (page-1 hero exhibit) and 2. terciles.png. The rest arrive in Phase 5.
+Phase 3: 1. event_path.png (page-1 hero exhibit) and 2. terciles.png. Phase 5: 3. extension_series.png,
+4. curve_map.png, 5. equity_curve.png (in-sample; the test window is added and shaded at Gate 2), 6. capacity.png.
 Flow Clock (PREREG_FLOWCLOCK.md): auction_event_path.png, A-10..A+10 by size-signal tercile.
+Series are told apart by line style and grey level, so every figure reads in greyscale.
 Each function returns the one-sentence caption that report.py stores in results.json beside the figure path.
 """
 from __future__ import annotations
@@ -9,6 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import matplotlib
+import numpy as np
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
@@ -131,3 +134,109 @@ def terciles(h1_res: dict, path: Path, sample: str) -> str:
     return (f"Mean T-4 to T 10-year excess return: {t['high']['mean']:.3f}% in high-demand months vs "
             f"{t['low']['mean']:.3f}% in low-demand months (high minus low {h1_res['high_minus_low']:+.3f}%; "
             f"bootstrap 95% intervals, {sample}).")
+
+
+def extension_series(months, ext, ref, path: Path, sample: str) -> str:
+    """Figure 3: monthly index extension Ext_m (years of duration), refunding months dark, others light."""
+    x = np.arange(len(months))
+    ext, ref = np.asarray(ext, float), np.asarray(ref, bool)
+    fig, ax = plt.subplots(figsize=(7.0, 3.2))
+    ax.bar(x[~ref], ext[~ref], width=0.9, color="#bdbdbd", lw=0, label="other months")
+    ax.bar(x[ref], ext[ref], width=0.9, color="#1a1a1a", lw=0, label="refunding months (Feb, May, Aug, Nov)")
+    ax.axhline(0, color=MUTED, lw=0.6)
+    years = np.array([m.year for m in months])
+    ticks = [i for i in range(len(months)) if months[i].month == 1 and years[i] % 5 == 0]
+    ax.set_xticks(ticks)
+    ax.set_xticklabels([str(years[i]) for i in ticks], fontsize=8)
+    ax.set_ylabel("extension at the rebalance (years)", fontsize=9, color=INK)
+    ax.set_title(f"Treasury index extension by month, rebuilt from auction records ({sample})", fontsize=10,
+                 loc="left", color=INK)
+    _axes_style(ax)
+    ax.legend(fontsize=8, frameon=False, loc="upper left")
+    fig.tight_layout()
+    fig.savefig(path, dpi=DPI)
+    plt.close(fig)
+    return (f"Mean extension is {ext[ref].mean():.3f} years in refunding months and {ext[~ref].mean():.3f} in "
+            f"the other months ({int(ref.sum())} and {int((~ref).sum())} months, {sample}).")
+
+
+def curve_map(xd, yd, h2_res: dict, path: Path, sample: str, n_bins: int = 10) -> str:
+    """Figure 4: H2 as a binned scatter. x = a bucket's standardized predicted demand minus the month's mean across
+    buckets, y = its -dy (bp) minus the month's mean; equal-count bins, mean and 95% interval, the H2 slope."""
+    xd, yd = np.asarray(xd, float), np.asarray(yd, float)
+    order = np.argsort(xd, kind="mergesort")
+    bins = np.array_split(order, n_bins)
+    bx = np.array([xd[b].mean() for b in bins])
+    by = np.array([yd[b].mean() for b in bins])
+    be = np.array([1.959963984540054 * yd[b].std(ddof=1) / np.sqrt(len(b)) for b in bins])
+    fig, ax = plt.subplots(figsize=(5.4, 3.8))
+    ax.errorbar(bx, by, yerr=be, fmt="o", color=INK, ms=5, elinewidth=1.0, capsize=3, label="bin mean, 95% CI")
+    xs = np.linspace(bx.min(), bx.max(), 50)
+    ax.plot(xs, h2_res["coef"] * xs, color=MUTED, ls="--", lw=1.5, label=f"H2 slope {h2_res['coef']:+.2f} bp per sd")
+    ax.axhline(0, color=MUTED, lw=0.6)
+    ax.axvline(0, color=MUTED, lw=0.6)
+    ax.set_xlabel("bucket's predicted demand (z) minus the month's mean", fontsize=9, color=INK)
+    ax.set_ylabel("bucket's yield fall over T-4 to T (bp),\nminus the month's mean", fontsize=9, color=INK)
+    ax.set_title(f"Forced demand across the curve, 5 maturity buckets ({sample})", fontsize=10, loc="left",
+                 color=INK)
+    _axes_style(ax)
+    ax.legend(fontsize=8, frameon=False, loc="upper left")
+    fig.tight_layout()
+    fig.savefig(path, dpi=DPI)
+    plt.close(fig)
+    lo, hi = h2_res["ci"]
+    return (f"Within a month, a bucket with 1 sd more predicted demand sees its yield fall {h2_res['coef']:+.2f}bp "
+            f"more over T-4 to T (95% CI {lo:+.2f} to {hi:+.2f}, {h2_res['n_obs']} bucket-months, month fixed "
+            f"effects, {sample}).")
+
+
+EQ_STYLE = [{"color": "#000000", "ls": "-"}, {"color": "#6b6b6b", "ls": "--"}, {"color": "#000000", "ls": ":"},
+            {"color": "#9e9e9e", "ls": "-."}]
+
+
+def equity_curve(navs: dict, sharpes: dict, path: Path, sample: str) -> str:
+    """Figure 5: excess-return NAV (strategy P&L only, log scale) of each strategy, in-sample, net of costs."""
+    fig, ax = plt.subplots(figsize=(7.0, 3.8))
+    for (name, nav), st in zip(navs.items(), EQ_STYLE):
+        ax.plot(nav.index, nav.to_numpy(), color=st["color"], ls=st["ls"], lw=1.4,
+                label=f"{name} (net Sharpe {sharpes[name]:.2f})")
+        ax.text(nav.index[-1], nav.iloc[-1], f" {nav.iloc[-1]:.2f}", fontsize=7, color=INK, va="center")
+    ax.set_yscale("log")
+    ax.axhline(1.0, color=MUTED, lw=0.6)
+    ax.set_ylabel("growth of 1 (excess of T-bill, log scale)", fontsize=9, color=INK)
+    ax.set_title(f"Equity curves, cash, net of costs ({sample}; test window not yet run)", fontsize=10, loc="left",
+                 color=INK)
+    _axes_style(ax)
+    ax.legend(fontsize=8, frameon=False, loc="upper left")
+    fig.tight_layout()
+    fig.savefig(path, dpi=DPI)
+    plt.close(fig)
+    parts = [f"{k} {v.iloc[-1]:.2f}x (Sharpe {sharpes[k]:.2f})" for k, v in navs.items()]
+    return f"Growth of 1 in excess of T-bills, net of costs: {'; '.join(parts)} ({sample})."
+
+
+def capacity(curves: dict, path: Path, sample: str) -> str:
+    """Figure 6: net Sharpe against capital (log scale) with square-root impact and the 5%-of-ADV cap."""
+    fig, ax = plt.subplots(figsize=(5.6, 3.6))
+    for (name, c), st in zip(curves.items(), EQ_STYLE):
+        g = c["grid"]
+        ax.plot(g["capital"], g["sharpe"], color=st["color"], ls=st["ls"], lw=1.6, marker="o", ms=3, label=name)
+        ax.axhline(c["sharpe_at_10m"] / 2.0, color=st["color"], ls=st["ls"], lw=0.6, alpha=0.6)
+        if c["capital_where_sharpe_halves"]:
+            ax.axvline(c["capital_where_sharpe_halves"], color=st["color"], ls=st["ls"], lw=0.6, alpha=0.6)
+    ax.set_xscale("log")
+    ax.axhline(0, color=MUTED, lw=0.6)
+    ax.set_xlabel("capital ($, log scale)", fontsize=9, color=INK)
+    ax.set_ylabel("net Sharpe after impact", fontsize=9, color=INK)
+    ax.set_title(f"Capacity of the month-end trade, cash 10-year ({sample})", fontsize=10, loc="left", color=INK)
+    _axes_style(ax)
+    ax.legend(fontsize=8, frameon=False, loc="lower left")
+    fig.tight_layout()
+    fig.savefig(path, dpi=DPI)
+    plt.close(fig)
+    parts = []
+    for name, c in curves.items():
+        k = c["capital_where_sharpe_halves"]
+        parts.append(f"{name}: net Sharpe {c['sharpe_at_10m']:.2f} at $10M, halves at "
+                     + (f"${k / 1e9:.2f}bn" if k else "more than $10bn"))
+    return "; ".join(parts) + f" (square-root impact on dealer volume, 5% of ADV cap, {sample})."

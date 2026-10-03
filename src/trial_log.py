@@ -1,8 +1,11 @@
 """runs/trials.csv trial logging and Gate 1 / Gate 2 guards (CLAUDE.md 7.14).
 
 Guards act only when GQH_DEV=1 (team .env); judges' runs are never blocked (CLAUDE.md section 5).
-log_trial() appends one row per tested configuration to runs/trials.csv on EVERY in-sample run (rule 7), whatever
-GQH_DEV says; rows are never deleted, and reruns of an unchanged configuration are logged again (same config_hash).
+log_trial() / log_trials() append one row per tested configuration to runs/trials.csv on every in-sample run made
+with GQH_DEV=1 (rule 7; team decision of Oct 3, 2026, Phase 5). Without GQH_DEV the log is left as committed, so a
+judge's run reproduces results.json, whose trials.count and Deflated Sharpe read the committed log (trial_count(),
+read_trials()). Rows are never deleted, and reruns of an unchanged configuration are logged again (same
+config_hash).
 """
 from __future__ import annotations
 
@@ -13,6 +16,7 @@ import os
 import subprocess
 from datetime import datetime, timezone
 
+import numpy as np
 import pandas as pd
 
 from config.settings import IS_END
@@ -126,24 +130,53 @@ def trial_count(path=TRIALS_CSV) -> int:
         return max(sum(1 for _ in csv.reader(f)) - 1, 0)
 
 
-def log_trial(cfg: dict, window: str, results: dict, git: dict | None = None, path=TRIALS_CSV) -> dict:
-    """Append one row to runs/trials.csv (CLAUDE.md 7.14). `results` supplies strategy, tenor, entry, exit, n,
-    H1_b, H1_lo, H1_hi, sharpe_fc, sharpe_cal and note; `git` is the state captured at the start of the run.
+def trial_row(cfg: dict, window: str, results: dict, git: dict | None = None) -> dict:
+    """One runs/trials.csv row (CLAUDE.md 7.14). `results` supplies strategy, tenor, entry, exit, n, H1_b, H1_lo,
+    H1_hi, sharpe_fc, sharpe_cal and note; `git` is the state captured at the start of the run.
 
     Flow Clock rows (window "*_flowclock*") keep the same columns: H1_b/lo/hi hold that row's pre-registered slope
     (H7 c for the book, H6c beta for the supply leg), sharpe_fc the candidate's net Sharpe (the book; the
     size-weighted supply leg) and sharpe_cal its benchmark's (the demand leg alone; the calendar supply leg). The
-    note says which."""
+    note says which. Phase 5 rows say in `note` what H1_* and the two Sharpe columns hold."""
     git = git or git_state()
     row = {"timestamp_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
            "git_commit": git["commit"], "dirty": git["dirty"], "config_hash": config_hash(cfg), "window": window}
     for k in TRIAL_COLUMNS[5:]:
         row[k] = results.get(k, "")
+    return row
+
+
+def append_rows(rows: list[dict], path=TRIALS_CSV) -> int:
+    """Append rows to runs/trials.csv only when GQH_DEV=1 (module docstring). Returns the number written."""
+    if not rows or not dev_mode():
+        return 0
     path.parent.mkdir(parents=True, exist_ok=True)
     new = not path.exists() or path.stat().st_size == 0
     with open(path, "a", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=TRIAL_COLUMNS, lineterminator="\n")
         if new:
             w.writeheader()
-        w.writerow(row)
+        w.writerows(rows)
+    return len(rows)
+
+
+def log_trial(cfg: dict, window: str, results: dict, git: dict | None = None, path=TRIALS_CSV) -> dict:
+    """Build one row (trial_row) and append it when GQH_DEV=1 (append_rows). Returns the row either way."""
+    row = trial_row(cfg, window, results, git)
+    append_rows([row], path)
     return row
+
+
+def log_trials(rows: list[dict], path=TRIALS_CSV) -> int:
+    """Append many trial_row() rows in one write (the sensitivity grid); only when GQH_DEV=1."""
+    return append_rows(rows, path)
+
+
+def read_trials(path=TRIALS_CSV) -> pd.DataFrame:
+    """The committed trial log as a DataFrame (empty if absent); Sharpe columns as floats (blank = NaN)."""
+    if not path.exists():
+        return pd.DataFrame(columns=TRIAL_COLUMNS)
+    df = pd.read_csv(path, dtype=str, keep_default_na=False)
+    for c in ("sharpe_fc", "sharpe_cal"):
+        df[c] = pd.to_numeric(df[c].replace("", np.nan), errors="coerce")
+    return df

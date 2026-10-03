@@ -90,7 +90,7 @@ extension-clock/
 │   │                            #   pension_pressure.csv (derived), CHECKSUMS.sha256, VINTAGE.md
 │   └── cache/                   # git-ignored: Databento raw, Ken French raw zip
 ├── src/
-│   ├── data/auctions.py  fred.py  french.py  fomc.py  mspd.py  soma.py  snapshot.py  databento_futures.py
+│   ├── data/auctions.py  fred.py  french.py  fomc.py  mspd.py  soma.py  pd_volume.py  snapshot.py  databento_futures.py
 │   ├── calendar.py              # bond-market business days, month-end T, T−k
 │   ├── bonds.py                 # price, modified duration, convexity of a coupon bond; curve interpolation
 │   ├── returns.py               # daily cash-bond returns per tenor from FRED yields; excess over T-bill
@@ -104,7 +104,7 @@ extension-clock/
 │   ├── stats.py                 # Newey-West, bootstrap, Deflated Sharpe, Sharpe-difference test
 │   ├── sensitivity.py           # the grid (section 7.12)
 │   ├── metrics.py               # required metrics, betas, crowding monitor, tails
-│   ├── capacity.py              # volume-based capacity, square-root impact
+│   ├── capacity.py              # volume-based capacity, square-root impact (cash: NY Fed dealer volume, section 14)
 │   ├── trial_log.py             # runs/trials.csv + gate guards
 │   ├── figures.py               # section 8
 │   ├── report.py                # writes outputs/results.json and tables
@@ -352,7 +352,9 @@ Write `outputs/tables/sensitivity.csv` plus a markdown version with the headline
 
 ### 7.14 `trial_log.py` and guards
 - `log_trial(cfg, window, results)` appends: `timestamp_utc, git_commit, dirty, config_hash, window, strategy,
-  tenor, entry, exit, n, H1_b, H1_lo, H1_hi, sharpe_fc, sharpe_cal, note`. Called by every in-sample run.
+  tenor, entry, exit, n, H1_b, H1_lo, H1_hi, sharpe_fc, sharpe_cal, note`. Called by every in-sample run; it
+  writes only when `GQH_DEV=1` (team decision, Oct 3, 2026), and `results.json["trials"]["count"]` and the
+  Deflated Sharpe read the committed log, so a judge's run reproduces the committed numbers.
 - With `GQH_DEV=1`: `assert_gate1()` requires the `gate1-prereg` tag before any return analysis. `assert_gate2()`
   requires HEAD tagged `gate2-frozen` and a clean tree before any date > `IS_END`. `--oos` writes
   `runs/oos_run.log` and refuses a second run unless `--force-rerun`, which appends a "FORCED RERUN" line that must
@@ -576,6 +578,36 @@ untouched test window).
 
 **Still to do** (pre-registered, not built): the test-window run (Gate 2), the futures version and the volume-based
 capacity estimate (PREREG_FLOWCLOCK.md "What is new", item 4).
+
+---
+
+## 14. Phase 5 choices (fixed before any Phase 5 result)
+
+Team decisions of Oct 3, 2026 (marked "team"); the rest are our choices, fixed at the same time and stated in the
+module docstrings. No definition changes after results.
+
+- **Trial log (team).** Rows are appended only with `GQH_DEV=1`; `results.json` reads `trials.count` from the
+  committed log. Never delete rows (the crashed run's rows stay). Every Phase 5 variant is a row: costs 2x, each
+  risk rule off, post-publication, curve-allocated (1x, 2x), the 480 grid cells, and the Flow Clock risk variants.
+- **Curve-allocated trade (team).** Bucket demand includes the cash term (`fdd_b`); weights max(fdd_b, 0) / sum;
+  if every fdd_b <= 0 there is no position; a bucket with a missing yield or return is left out that month and the
+  weights renormalize (months counted). Ours: total DV01 = the calendar-only DV01 (x 1), so it differs from
+  calendar_only only by where the risk sits; FOMC, drawdown and cap rules as `run_strategy`.
+- **H2.** −Δy_b (bp) over E..T on the bucket's `fdd_b` z-scored per bucket on past months; month fixed effects by
+  demeaning; SEs clustered by month (CR1 counting only the slope); the extension-only version beside it.
+- **H3.** The 10-year from the close of T to T+3 on z_m (Newey-West); also the mean reversal and tercile means.
+- **H5.** R_m on z, z_pension, quarter-end, year-end, refunding and scheduled-FOMC dummies (Newey-West).
+- **Risk rules on and off.** Each of FOMC half size, drawdown rule and notional cap off alone, then all off.
+- **Post-publication.** Strategies rerun from 2019-01 (drawdown rule starts flat); z is the full-history z.
+- **Crowding monitor.** mean C(T−4) / mean C(T), C = cumulative return from T−10, by year and by z tercile.
+- **Capacity (cash).** ADV = NY Fed primary dealer transactions in the coupon bucket holding the 10-year (6–11y to
+  2013-03, 7–11y after; `src/data/pd_volume.py`, snapshot `pd_treasury_volume.csv`), mean of the last 4 weeks
+  released before E, so the sample starts 2001-08. Impact per side = σ_price √(Q/ADV) Q; trades capped at 5% of ADV.
+- **Sensitivity grid.** Each entry offset rebuilds the index point in time at T−k; a month with a missing tenor
+  return is not traded; a fast numpy engine is checked against `run_strategy` on every run.
+- **Deflated Sharpe.** N = every row of the log; V = variance of every Sharpe in the log (both columns).
+- **Flow Clock (descriptive).** Risk rules on and off for the book, supply leg and demand leg; P&L by tenor from the
+  legs; decades by slicing the full-sample runs; drawdown table by year.
 
 ---
 

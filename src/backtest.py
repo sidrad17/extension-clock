@@ -11,7 +11,22 @@ Cash version (CLAUDE.md 7.10):
   and half on the exit day.
 * Capital is fixed at CAPITAL (sizing never compounds). Daily excess return = P&L / CAPITAL; total return adds the
   T-bill on capital (DTB3, as in src/returns.py). NAV series compound these daily returns.
-Strategies: calendar_only and forecast_sized (headline). curve_allocated (the H2 trade) arrives with H2 (Phase 5).
+Strategies: calendar_only and forecast_sized (headline), and curve_allocated (the H2 trade, run_curve_allocated).
+
+curve_allocated (CLAUDE.md 7.10; decisions by the team on Oct 3, 2026, before any curve result, marked "team"; the
+rest our choices, fixed at the same time):
+* Demand by bucket = fdd_b = dC_b + the cash term spread by NEXT weights (team), from the index rebuild at E.
+  Weights a_b = max(fdd_b, 0) / sum over buckets of max(fdd_b, 0). If every fdd_b <= 0 there is no position that
+  month (team). A bucket whose CMT yield (settings.TENORS) is missing at entry, or whose daily return is missing on
+  any day of the window, is left out that month and the weights renormalize over the rest (team); such months are
+  counted.
+* Total DV01 = the calendar-only DV01 (x 1, not x w_m), so the trade differs from calendar_only only in where on the
+  curve the risk sits: the cross-sectional prediction of H2, separate from the time-series sizing of H1/H4. Sized on
+  the 10-year yield's sigma like every month-end trade; FOMC half size and the drawdown rule as in run_strategy.
+* Bucket b holds notional DV01 x a_b / (D_b x 1e-4) of its tenor's par bond (D_b at entry, src/bonds.py). Notional
+  cap: if the buckets' gross notional exceeds NOTIONAL_CAP x CAPITAL, every bucket is scaled by one factor.
+* Cost = CASH_COST_BP x cost_mult x total DV01 per round trip, half at entry and half at exit, as run_strategy.
+With every weight in the 7-10y bucket this is calendar_only exactly (tests/test_backtest.py).
 """
 from __future__ import annotations
 
@@ -22,7 +37,7 @@ import pandas as pd
 
 from config.settings import ENTRY_OFFSET, EXIT_OFFSET, PLACEBO_BDAYS
 from src.bonds import mod_duration
-from src.risk import DrawdownRule, RiskConfig, sigma_bp, size_trade
+from src.risk import DrawdownRule, RiskConfig, base_dv01, sigma_bp, size_trade
 from src.signals import window_has
 
 
@@ -34,6 +49,19 @@ def month_end_windows(cal, months, entry_offset: int = ENTRY_OFFSET, exit_offset
     for m in months:
         T = cal.month_end(m)
         rows[m] = {"T": T, "entry": cal.offset(T, -entry_offset), "exit": cal.offset(T, exit_offset)}
+    return pd.DataFrame.from_dict(rows, orient="index")
+
+
+def reversal_windows(cal, months, n_days: int) -> pd.DataFrame:
+    """H3 window for month m: enter at the close of T(m), exit at the close of T(m) + n_days (first n_days bond days
+    of month m + 1). Months whose exit lies beyond the calendar (after IS_END in-sample) are left out."""
+    rows = {}
+    for m in months:
+        T = cal.month_end(m)
+        try:
+            rows[m] = {"T": T, "entry": T, "exit": cal.offset(T, n_days)}
+        except IndexError:
+            continue
     return pd.DataFrame.from_dict(rows, orient="index")
 
 
@@ -138,3 +166,85 @@ def run_strategy(name: str, windows: pd.DataFrame, w: pd.Series, daily_excess: p
     if daily["total"].isna().any():
         raise ValueError(f"{name}: missing T-bill returns in the NAV period")
     return StrategyResult(name=name, trades=trades, daily=daily, cfg=cfg)
+
+
+def run_curve_allocated(name: str, windows: pd.DataFrame, demand: pd.DataFrame, tenor_of: dict[str, str],
+                        excess: pd.DataFrame, yields: pd.DataFrame, rf: pd.Series, y10: pd.Series,
+                        fomc_scheduled: pd.DatetimeIndex, cal, days: pd.DatetimeIndex,
+                        cfg: RiskConfig | None = None) -> StrategyResult:
+    """The H2 trade (module docstring). demand: months x buckets of fdd_b; tenor_of: bucket -> FRED series;
+    excess / yields: daily excess returns (fractions) and yields (percent) per FRED series on the bond calendar."""
+    from src.bonds import KNOT_YEARS
+    cfg = cfg or RiskConfig()
+    fomc = pd.DatetimeIndex(fomc_scheduled).sort_values()
+    buckets = list(demand.columns)
+    pos = pd.Series(np.arange(len(days)), index=days)
+    pnl = np.zeros(len(days))
+    notional_d = np.zeros(len(days))
+    dd = DrawdownRule(cfg)
+    rows, flat, excluded = [], [], []
+    prev_exit = pd.Timestamp.min
+    for m, win in windows.iterrows():
+        entry, exit_ = win["entry"], win["exit"]
+        if entry < days[0] or exit_ > days[-1]:
+            raise ValueError(f"{m}: window {entry.date()}..{exit_.date()} outside the NAV days")
+        if entry <= prev_exit:
+            raise ValueError(f"{m}: window overlaps the previous one")
+        prev_exit = exit_
+        i0, i1 = int(pos[entry]), int(pos[exit_])
+        ok, rets, durs = {}, {}, {}
+        for b in buckets:
+            t = tenor_of[b]
+            y_e = float(yields.at[entry, t]) if entry in yields.index else np.nan
+            r = excess[t].reindex(days[i0 + 1:i1 + 1]).to_numpy(float)
+            ok[b] = np.isfinite(y_e) and np.isfinite(r).all()
+            if ok[b]:
+                rets[b] = r
+                durs[b] = float(mod_duration(y_e, y_e, KNOT_YEARS[t]))
+        if not all(ok.values()):
+            excluded.append({"month": m, "buckets": [b for b in buckets if not ok[b]]})
+        d = demand.loc[m, [b for b in buckets if ok[b]]].clip(lower=0.0)
+        if not (d.sum() > 0):
+            flat.append(m)
+            continue
+        a = d / d.sum()
+        sig = sigma_bp(y10, entry, cfg.vol_lookback)
+        fomc_in = window_has(fomc, entry, exit_)
+        dd_mult = dd.decide()
+        hd = hold_days(cal, entry, exit_)
+        fomc_mult = 0.5 if (cfg.fomc_half and fomc_in) else 1.0
+        dv01 = base_dv01(sig, cfg, hd) * fomc_mult * dd_mult
+        notional = {b: dv01 * float(a[b]) / (durs[b] * 1e-4) for b in a.index if a[b] > 0}
+        gross_not = sum(notional.values())
+        capped = False
+        if cfg.notional_cap_on and gross_not > cfg.notional_cap * cfg.capital:
+            f = cfg.notional_cap * cfg.capital / gross_not
+            notional = {b: n * f for b, n in notional.items()}
+            gross_not = sum(notional.values())
+            dv01 = sum(n * durs[b] * 1e-4 for b, n in notional.items())
+            capped = True
+        gross = np.zeros(i1 - i0)
+        for b, n in notional.items():
+            gross += n * rets[b]
+        cost = cfg.cost_bp * cfg.cost_mult * dv01
+        pnl[i0 + 1:i1 + 1] += gross
+        pnl[i0] -= cost / 2.0
+        pnl[i1] -= cost / 2.0
+        notional_d[i0 + 1:i1 + 1] = gross_not
+        dd.update(pnl[i0:i1 + 1] / cfg.capital)
+        row = {"month": m, "entry": entry, "exit": exit_, "hold_days": hd, "sigma_bp": sig, "w": 1.0,
+               "fomc": int(fomc_in), "fomc_mult": fomc_mult, "dd_mult": dd_mult, "dv01": dv01,
+               "notional": gross_not, "capped": int(capped), "gross_pnl": float(gross.sum()), "cost": cost,
+               "net_pnl": float(gross.sum()) - cost, "n_buckets": int(len(notional))}
+        row.update({f"a_{b}": float(a.get(b, 0.0)) for b in buckets})
+        rows.append(row)
+    trades = pd.DataFrame(rows).set_index("month")
+    excess_d = pnl / cfg.capital
+    daily = pd.DataFrame({"pnl": pnl, "excess": excess_d, "total": rf.reindex(days).to_numpy() + excess_d,
+                          "notional": notional_d}, index=days)
+    if daily["total"].isna().any():
+        raise ValueError(f"{name}: missing T-bill returns in the NAV period")
+    res = StrategyResult(name=name, trades=trades, daily=daily, cfg=cfg)
+    res.flat_months = flat
+    res.excluded = excluded
+    return res

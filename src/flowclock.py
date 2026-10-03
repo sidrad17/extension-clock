@@ -37,6 +37,16 @@ at entry, as in src/backtest.py:
   (checked in run_all.py and tests/test_flowclock.py).
 * Metrics: as src/metrics.py, with hit rate and worst unit per event (supply legs: pre + post net P&L, each leg
   charged CASH_COST_BP x cost_mult x its DV01) or per calendar month (the book).
+
+Phase 5, descriptive (our choices, fixed before any Phase 5 result):
+* Risk rules on and off: each rule switched off alone (FOMC half size, drawdown rule, notional cap), then all three,
+  for the book, the calendar supply leg and the demand leg alone (calendar_only with the same switches), in-sample.
+* By tenor: from the in-sample calendar supply leg's legs (no rerun): events, net P&L in % of capital per year
+  (attributed costs: CASH_COST_BP x cost_mult x the leg's DV01), pre and post legs separately, hit rate per event.
+* By decade (1993-1999, 2000-2009, 2010-2019, 2020-2024-09): H6 on the events whose A falls in the decade; Sharpe,
+  return and drawdown of the full in-sample runs' daily returns sliced to the decade (src/metrics.py
+  slice_metrics, not a rerun).
+* Drawdown table by year: src/metrics.py yearly_table on the in-sample book, calendar supply leg and demand leg.
 """
 from __future__ import annotations
 
@@ -91,6 +101,12 @@ def cluster_ols(y, X: np.ndarray, groups, names: list[str]) -> dict:
 
 
 def cluster_mean(x: pd.Series, groups: pd.Series) -> dict:
+    """Mean with week-clustered errors; with fewer than 2 clusters (possible in Phase 5's by-decade cells) the mean
+    is reported and its error is undefined (NaN)."""
+    if pd.Series(groups).nunique() < 2:
+        b = float(np.mean(x)) if len(x) else np.nan
+        return {"n": int(len(x)), "n_clusters": int(pd.Series(groups).nunique()), "b": b, "se": np.nan, "t": np.nan,
+                "ci": [np.nan, np.nan]}
     r = cluster_ols(x.to_numpy(float), np.ones((len(x), 1)), groups.to_numpy(), ["mean"])
     return {"n": r["n"], "n_clusters": r["n_clusters"], **r["params"]["mean"]}
 
@@ -384,3 +400,27 @@ def path_summary(paths: pd.DataFrame, labels: pd.Series, weeks: pd.Series) -> di
         out[t] = {"n": int(n), "n_weeks": int(G), "k": [int(k) for k in p.columns], "mean": mean.tolist(),
                   "lo": (mean - Z95 * se).tolist(), "hi": (mean + Z95 * se).tolist()}
     return out
+
+
+# ------------------------------------------------------------------------------------------------- Phase 5
+
+DECADES = {"1993-1999": ("1993-01-01", "1999-12-31"), "2000-2009": ("2000-01-01", "2009-12-31"),
+           "2010-2019": ("2010-01-01", "2019-12-31"), "2020-2024": ("2020-01-01", "2024-12-31")}
+
+
+def by_tenor(res: BookResult, years: float) -> dict:
+    """Net P&L of the supply legs by tenor (module docstring); % of capital."""
+    L = res.legs[res.legs["kind"].isin(["pre", "post"])]
+    cap = res.cfg.capital
+    out = {}
+    for t, g in L.groupby("tenor", sort=False):
+        ev = g.groupby("unit_id")["net_pnl"].sum()
+        out[t] = {"n_events": int(ev.size),
+                  "net_pnl_pct_per_year": float(g["net_pnl"].sum() / cap / years * 100.0),
+                  "pre_net_pnl_pct_per_year": float(g.loc[g["kind"] == "pre", "net_pnl"].sum() / cap / years * 100),
+                  "post_net_pnl_pct_per_year": float(g.loc[g["kind"] == "post", "net_pnl"].sum() / cap / years * 100),
+                  "mean_event_net_pnl_bp_of_capital": float(ev.mean() / cap * 1e4),
+                  "hit_rate": float((ev > 0).mean()),
+                  "cost_pct_per_year": float(g["cost"].sum() / cap / years * 100.0)}
+    order = sorted(out, key=KNOT_YEARS.get)
+    return {t: out[t] for t in order}

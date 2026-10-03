@@ -1,8 +1,9 @@
-"""Hypothesis tests: H1 (+ components, addendum (a)-(b)), H4, placebo and luck test, event path (CLAUDE.md 7.11).
+"""Hypothesis tests: H1 (+ components, addendum (a)-(c)), H2, H3, H4, H5, placebo and luck test, event path
+(CLAUDE.md 7.11).
 
 Units: R_m is the 10-year par-bond window excess return in PERCENT (T - 4 -> T); z_m in standard deviations (past
 months only, src/signals.py); yield terms are -dy in bp over the same window. Newey-West with HAC_LAGS = 3 over
-monthly observations in calendar order (src/stats.py). H2, H3, H5 and the addendum's (c) arrive in Phase 5.
+monthly observations in calendar order (src/stats.py).
 
 Our choices, fixed before any return was computed:
 * Terciles of z_m use the in-sample cut points of z_m (a description of the test sample, not a trading rule); each
@@ -17,14 +18,32 @@ Our choices, fixed before any return was computed:
   returns over months; the month-end mean over the same months is set against that distribution.
 * Event path (figure 1): cumulative excess return from the close of T - 10 through T + 5, months whose T + 5 is in
   the sample; 95% band = mean +/- 1.96 x standard error across months.
+
+Phase 5 (our choices, fixed before any Phase 5 result; the team approved the curve choices on Oct 3, 2026):
+* Addendum (c): R_m on zs_m (surprise extension, src/signals.py), Newey-West; it starts in 1996-01.
+* H3: R3_m = 10-year excess return from the close of T(m) to the close of T(m) + 3 (the first 3 bond days of
+  month m + 1), on z_m (Newey-West). Predictions: slope < 0, and a partial reversal, mean R3 < 0. Months whose
+  T + 3 lies after IS_END are left out. Also: R3 by z tercile, and mean R3 / mean R over the same months.
+* H5 (horse race): R_m on z_m, z_pension, quarter-end, year-end, refunding-month and scheduled-FOMC dummies,
+  Newey-West. Year-end months are also quarter-end months, so the year-end coefficient is the December effect
+  beyond the quarter-end effect.
+* H2: panel of buckets x months. y = -dy_b (bp) of the bucket's CMT yield (settings.TENORS) over E -> T. x = the
+  bucket's predicted demand fdd_b = dC_b + cash term spread by NEXT weights (src/index_rebuild.py; the team's
+  reading of dC_b for the curve trade, used here too so the test and the trade share one signal), standardized
+  per bucket on past months only (src/signals.py past_zscore, 36-month minimum). Month fixed effects are absorbed
+  by demeaning y and x within each month; standard errors are clustered by month (statsmodels CR1, normal
+  intervals). The month effects are nested in the clusters, so the small-sample factor counts only the slope (as
+  Stata's reghdfe does). A bucket whose yield is missing at E or T leaves that month's panel. The extension-only
+  version (ext_b) is reported beside it, as the H1 component test is.
 """
 from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import statsmodels.api as sm
 
 from config.settings import BOOT_N, N_RANDOM_PLACEBO, SEED
-from src.stats import bootstrap_mean_ci, nw_mean, nw_regression, paired_sharpe_diff_bootstrap
+from src.stats import Z95, bootstrap_mean_ci, nw_mean, nw_regression, paired_sharpe_diff_bootstrap
 
 TERCILES = ["low", "mid", "high"]
 EXCLUDE_DAYS_OF_MONTH = (14, 15, 16)
@@ -71,8 +90,9 @@ def h1_components(R_pct: pd.Series, dy_neg_bp: pd.Series, z_ext: pd.Series, z_ca
             "corr_z_ext_z_cash": float(df["ext"].corr(df["cash"]))}
 
 
-def h1_addendum(R_pct: pd.Series, dy_neg_bp: pd.Series, z: pd.Series, ref: pd.Series) -> dict:
-    """PREREG_ADDENDUM.md (a) and (b). (c), the surprise extension, arrives in Phase 5."""
+def h1_addendum(R_pct: pd.Series, dy_neg_bp: pd.Series, z: pd.Series, ref: pd.Series,
+                z_surprise: pd.Series | None = None) -> dict:
+    """PREREG_ADDENDUM.md (a), (b) and, when z_surprise is given, (c): R_m on the standardized surprise extension."""
     df = pd.concat([R_pct.rename("R"), dy_neg_bp.rename("Y"), z.rename("z"), ref.rename("ref")], axis=1).dropna()
     out = {}
     for key, col in [("pct", "R"), ("yield_bp", "Y")]:
@@ -84,7 +104,98 @@ def h1_addendum(R_pct: pd.Series, dy_neg_bp: pd.Series, z: pd.Series, ref: pd.Se
                     "within_other": {**_coef(b, "z_oth"), "n": int((1 - df["ref"]).sum())}}
     res = out["pct"]
     res["yield_bp"] = out["yield_bp"]
-    res["surprise"] = {"status": "Phase 5 (PREREG_ADDENDUM.md (c))"}
+    res["surprise"] = surprise_test(R_pct, dy_neg_bp, z_surprise) if z_surprise is not None else {}
+    return res
+
+
+def surprise_test(R_pct: pd.Series, dy_neg_bp: pd.Series, zs: pd.Series) -> dict:
+    """PREREG_ADDENDUM.md (c): R_m = a + b_s zs_m + e_m (Newey-West); prediction b_s > 0."""
+    df = pd.concat([R_pct.rename("R"), dy_neg_bp.rename("Y"), zs.rename("zs")], axis=1).dropna()
+    reg = nw_regression(df["R"], {"zs": df["zs"]})
+    reg_y = nw_regression(df["Y"], {"zs": df["zs"]})
+    return {**_coef(reg, "zs"), "n": reg["n"], "yield_bp": {**_coef(reg_y, "zs"), "n": reg_y["n"]},
+            "sample": [str(df.index[0]), str(df.index[-1])], "prediction": "b_s > 0"}
+
+
+def h3(R3_pct: pd.Series, dy3_neg_bp: pd.Series, z: pd.Series, R_pct: pd.Series) -> dict:
+    """H3: the first 3 bond days of month m + 1 on z_m (module docstring); slope < 0 and mean < 0 predicted."""
+    df = pd.concat([R3_pct.rename("R3"), dy3_neg_bp.rename("Y3"), z.rename("z"), R_pct.rename("R")],
+                   axis=1).dropna()
+    reg = nw_regression(df["R3"], {"z": df["z"]})
+    reg_y = nw_regression(df["Y3"], {"z": df["z"]})
+    terc = pd.qcut(df["z"], 3, labels=TERCILES)
+    terciles = {lab: bootstrap_mean_ci(df.loc[terc == lab, "R3"]) for lab in TERCILES}
+    mean_r3, mean_r = float(df["R3"].mean()), float(df["R"].mean())
+    return {"coef": reg["params"]["z"]["b"], "ci": reg["params"]["z"]["ci"], "t": reg["params"]["z"]["t"],
+            "se": reg["params"]["z"]["se"], "n": reg["n"], "a": reg["params"]["const"]["b"],
+            "mean_R3": nw_mean(df["R3"]), "mean_neg_dy3_bp": nw_mean(df["Y3"]),
+            "yield_bp": {**_coef(reg_y, "z"), "n": reg_y["n"]},
+            "terciles": terciles, "high_minus_low": terciles["high"]["mean"] - terciles["low"]["mean"],
+            "mean_R_same_months": mean_r, "reversal_share_of_run_up": mean_r3 / mean_r if mean_r else None,
+            "sample": [str(df.index[0]), str(df.index[-1])],
+            "prediction": "coef < 0 (larger reversal after heavy forced demand) and mean_R3 < 0",
+            "units": "R3: 10-year excess return T -> T+3, %; yield_bp: -dy over T -> T+3, bp"}
+
+
+H5_TERMS = ["z", "z_pension", "quarter_end", "year_end", "ref", "fomc"]
+
+
+def h5(R_pct: pd.Series, dy_neg_bp: pd.Series, sig: pd.DataFrame) -> dict:
+    """H5 horse race (module docstring): pension pressure predicted > 0, quarter-end about 0."""
+    df = pd.concat([R_pct.rename("R"), dy_neg_bp.rename("Y"), sig[H5_TERMS]], axis=1).dropna()
+    regs = {t: df[t].astype(float) for t in H5_TERMS}
+    reg = nw_regression(df["R"], regs)
+    reg_y = nw_regression(df["Y"], regs)
+    resid = df["R"] - np.column_stack([np.ones(len(df))] + [df[t].to_numpy(float) for t in H5_TERMS]) @ np.array(
+        [reg["params"][k]["b"] for k in ["const"] + H5_TERMS])
+    r2 = 1.0 - float((resid ** 2).sum() / ((df["R"] - df["R"].mean()) ** 2).sum())
+    return {"coefs": {t: _coef(reg, t) for t in ["const"] + H5_TERMS}, "n": reg["n"], "r2": r2,
+            "yield_bp": {t: _coef(reg_y, t) for t in ["const"] + H5_TERMS},
+            "counts": {t: int(df[t].sum()) for t in ("quarter_end", "year_end", "ref", "fomc")},
+            "sample": [str(df.index[0]), str(df.index[-1])],
+            "prediction": "z_pension > 0 (adds a little); quarter_end about 0 beyond forced demand"}
+
+
+def fe_cluster_slope(y: np.ndarray, x: np.ndarray, groups: np.ndarray) -> dict:
+    """Slope of y on x with group fixed effects absorbed by within-group demeaning and standard errors clustered by
+    group (CR1 with K = 1, normal intervals; module docstring, H2)."""
+    df = pd.DataFrame({"y": y, "x": x, "g": groups})
+    yd = df["y"] - df.groupby("g")["y"].transform("mean")
+    xd = df["x"] - df.groupby("g")["x"].transform("mean")
+    codes = pd.factorize(df["g"])[0]
+    fit = sm.OLS(yd.to_numpy(float), xd.to_numpy(float)[:, None]).fit(cov_type="cluster",
+                                                                       cov_kwds={"groups": codes})
+    b, se = float(fit.params[0]), float(fit.bse[0])
+    return {"coef": b, "se": se, "t": b / se, "ci": [b - Z95 * se, b + Z95 * se], "n_obs": int(len(df)),
+            "n_months": int(codes.max() + 1)}
+
+
+def h2_panel(neg_dy_bp: pd.DataFrame, X: pd.DataFrame) -> pd.DataFrame:
+    """Long bucket-month panel (y, x, month) without missing cells, months with at least 2 buckets, plus the
+    within-month demeaned yd, xd (what H2 regresses and figure 4 plots)."""
+    long = pd.DataFrame({"y": neg_dy_bp.stack(), "x": X.stack()}).dropna()
+    long.index = long.index.set_names(["period", "bucket"])
+    long = long[long.groupby(level=0)["y"].transform("size") >= 2]          # a month needs 2 buckets to compare
+    long["month"] = long.index.get_level_values(0).astype(str)
+    long["yd"] = long["y"] - long.groupby("month")["y"].transform("mean")
+    long["xd"] = long["x"] - long.groupby("month")["x"].transform("mean")
+    return long
+
+
+def h2(neg_dy_bp: pd.DataFrame, z_fdd: pd.DataFrame, z_ext: pd.DataFrame) -> dict:
+    """H2 (module docstring). Inputs: months x buckets (same columns); NaN cells leave the panel."""
+    out = {}
+    for key, X in (("fdd", z_fdd), ("ext_only", z_ext)):
+        long = h2_panel(neg_dy_bp, X)
+        r = fe_cluster_slope(long["y"].to_numpy(float), long["x"].to_numpy(float), long["month"].to_numpy())
+        r["n_by_bucket"] = {str(b): int(v) for b, v in long.groupby(level=1).size().items()}
+        out[key] = r
+    res = out["fdd"]
+    res["ext_only"] = out["ext_only"]
+    res["mean_neg_dy_bp_by_bucket"] = {str(b): float(v) for b, v in neg_dy_bp.mean().items()}
+    res["sample"] = [str(neg_dy_bp.index[0]), str(neg_dy_bp.index[-1])]
+    res["prediction"] = "coef > 0: buckets with more predicted buying see larger yield falls"
+    res["units"] = "y: -dy of the bucket's CMT yield over E -> T, bp; x: past-only z of the bucket's demand"
     return res
 
 
