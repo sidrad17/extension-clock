@@ -207,6 +207,7 @@ def flowclock(cal, is_months, win, R, Y, demand, me_common: dict, git: dict, t0:
     assert_flowclock_prereg()
     yld = load_frame(FC_TENORS, end=IS_END, index=cal.days, fill=True)
     ev = build_events(load_auctions(end=IS_END, exclude=None), cal, yld)
+    att = dict(ev.attrs)                        # DataFrame.join below does not carry attrs
     _, xs = tenor_returns(end=IS_END, tenors={s: s for s in FC_TENORS})
     ev = ev.join(event_returns(ev, xs, yld))
     masks = {"in_sample": in_sample_mask(ev, IS_START, IS_END), "post_lyz": in_sample_mask(ev, POST_LYZ_START, IS_END)}
@@ -345,7 +346,6 @@ def flowclock(cal, is_months, win, R, Y, demand, me_common: dict, git: dict, t0:
         "note": "events with A-10..A+10 inside the in-sample period and zS known at A-5; terciles by average rank"}
     step("Flow Clock tables and auction_event_path.png written", t0)
 
-    att = ev.attrs
     e_is = ev[ins]
     blocks["in_sample"]["events"] = {
         "n_nominal_coupon_auctions_through_is_end": int(len(ev)), "n_tips_dropped": att["n_tips_dropped"],
