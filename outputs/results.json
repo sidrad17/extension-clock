@@ -1,13 +1,13 @@
 {
   "meta": {
-    "commit": "6bc855f",
+    "commit": "cc1bf00",
     "dirty": false,
-    "generated_utc": "2026-10-03T22:45:38Z",
+    "generated_utc": "2026-10-04T02:48:25Z",
     "snapshot_checksums_ok": true,
     "settings_hash": "4fc4ac187ed4",
-    "version": "v5 (Phase 4d: in-sample; cash and futures; month-end leg and Flow Clock; CMT switch diagnostic)",
+    "version": "v6 (H8: in-sample; cash and futures; month-end leg, Flow Clock, CMT switch diagnostic, H8 dealer test)",
     "pending": [
-      "oos and flowclock.oos (Gate 2 only)",
+      "oos, flowclock.oos and H8.oos (Gate 2 only)",
       "in_sample.tips_replication (Phase 6)",
       "figure 5: test window added and shaded (Gate 2)"
     ],
@@ -12216,12 +12216,12 @@
         "n_days": 7943,
         "skew": 1.46428,
         "kurtosis": 78.9422,
-        "n_trials": 518,
+        "n_trials": 519,
         "n_trial_sharpes": 1018,
         "var_trial_sharpe_ann": 0.0245274,
-        "sr0_ann": 0.479726,
-        "dsr": 0.701472,
-        "z": 0.528639,
+        "sr0_ann": 0.479816,
+        "dsr": 0.701293,
+        "z": 0.528124,
         "psr_vs_zero": 0.999442
       },
       "calendar_only": {
@@ -12229,12 +12229,12 @@
         "n_days": 7943,
         "skew": 0.99587,
         "kurtosis": 35.8915,
-        "n_trials": 518,
+        "n_trials": 519,
         "n_trial_sharpes": 1018,
         "var_trial_sharpe_ann": 0.0245274,
-        "sr0_ann": 0.479726,
-        "dsr": 0.798399,
-        "z": 0.835916,
+        "sr0_ann": 0.479816,
+        "dsr": 0.798254,
+        "z": 0.835401,
         "psr_vs_zero": 0.999818
       },
       "curve_allocated": {
@@ -12242,12 +12242,12 @@
         "n_days": 7943,
         "skew": 0.857002,
         "kurtosis": 29.398,
-        "n_trials": 518,
+        "n_trials": 519,
         "n_trial_sharpes": 1018,
         "var_trial_sharpe_ann": 0.0245274,
-        "sr0_ann": 0.479726,
-        "dsr": 0.88214,
-        "z": 1.18575,
+        "sr0_ann": 0.479816,
+        "dsr": 0.882038,
+        "z": 1.18524,
         "psr_vs_zero": 0.999954
       },
       "flowclock_book": {
@@ -12255,12 +12255,12 @@
         "n_days": 7943,
         "skew": 0.86319,
         "kurtosis": 15.5533,
-        "n_trials": 518,
+        "n_trials": 519,
         "n_trial_sharpes": 1018,
         "var_trial_sharpe_ann": 0.0245274,
-        "sr0_ann": 0.479726,
-        "dsr": 0.986616,
-        "z": 2.2149,
+        "sr0_ann": 0.479816,
+        "dsr": 0.986599,
+        "z": 2.21438,
         "psr_vs_zero": 1.0
       },
       "flowclock_supply_calendar": {
@@ -12268,12 +12268,12 @@
         "n_days": 7943,
         "skew": 0.473973,
         "kurtosis": 11.3763,
-        "n_trials": 518,
+        "n_trials": 519,
         "n_trial_sharpes": 1018,
         "var_trial_sharpe_ann": 0.0245274,
-        "sr0_ann": 0.479726,
-        "dsr": 0.965766,
-        "z": 1.82192,
+        "sr0_ann": 0.479816,
+        "dsr": 0.965727,
+        "z": 1.8214,
         "psr_vs_zero": 0.999997
       },
       "futures_month_end_zn": {
@@ -12281,12 +12281,12 @@
         "n_days": 3565,
         "skew": 0.422138,
         "kurtosis": 46.7472,
-        "n_trials": 518,
+        "n_trials": 519,
         "n_trial_sharpes": 1018,
         "var_trial_sharpe_ann": 0.0245274,
-        "sr0_ann": 0.479726,
-        "dsr": 0.873893,
-        "z": 1.14499,
+        "sr0_ann": 0.479816,
+        "dsr": 0.873823,
+        "z": 1.14465,
         "psr_vs_zero": 0.998373
       },
       "futures_supply_calendar": {
@@ -12294,12 +12294,12 @@
         "n_days": 3565,
         "skew": 0.479723,
         "kurtosis": 10.1851,
-        "n_trials": 518,
+        "n_trials": 519,
         "n_trial_sharpes": 1018,
         "var_trial_sharpe_ann": 0.0245274,
-        "sr0_ann": 0.479726,
-        "dsr": 0.235738,
-        "z": -0.720079,
+        "sr0_ann": 0.479816,
+        "dsr": 0.235633,
+        "z": -0.720421,
         "psr_vs_zero": 0.862421
       },
       "at_total_logged_runs": {
@@ -12308,12 +12308,12 @@
           "n_days": 7943,
           "skew": 1.46428,
           "kurtosis": 78.9422,
-          "n_trials": 2594,
-          "n_trial_sharpes": 5113,
-          "var_trial_sharpe_ann": 0.0254726,
-          "sr0_ann": 0.561318,
-          "dsr": 0.525581,
-          "z": 0.0641649,
+          "n_trials": 3115,
+          "n_trial_sharpes": 6134,
+          "var_trial_sharpe_ann": 0.0253436,
+          "sr0_ann": 0.567591,
+          "dsr": 0.511351,
+          "z": 0.0284568,
           "psr_vs_zero": 0.999442
         },
         "calendar_only": {
@@ -12321,12 +12321,12 @@
           "n_days": 7943,
           "skew": 0.99587,
           "kurtosis": 35.8915,
-          "n_trials": 2594,
-          "n_trial_sharpes": 5113,
-          "var_trial_sharpe_ann": 0.0254726,
-          "sr0_ann": 0.561318,
-          "dsr": 0.645001,
-          "z": 0.371858,
+          "n_trials": 3115,
+          "n_trial_sharpes": 6134,
+          "var_trial_sharpe_ann": 0.0253436,
+          "sr0_ann": 0.567591,
+          "dsr": 0.631633,
+          "z": 0.336181,
           "psr_vs_zero": 0.999818
         },
         "curve_allocated": {
@@ -12334,12 +12334,12 @@
           "n_days": 7943,
           "skew": 0.857002,
           "kurtosis": 29.398,
-          "n_trials": 2594,
-          "n_trial_sharpes": 5113,
-          "var_trial_sharpe_ann": 0.0254726,
-          "sr0_ann": 0.561318,
-          "dsr": 0.764898,
-          "z": 0.722148,
+          "n_trials": 3115,
+          "n_trial_sharpes": 6134,
+          "var_trial_sharpe_ann": 0.0253436,
+          "sr0_ann": 0.567591,
+          "dsr": 0.753803,
+          "z": 0.686507,
           "psr_vs_zero": 0.999954
         },
         "flowclock_book": {
@@ -12347,12 +12347,12 @@
           "n_days": 7943,
           "skew": 0.86319,
           "kurtosis": 15.5533,
-          "n_trials": 2594,
-          "n_trial_sharpes": 5113,
-          "var_trial_sharpe_ann": 0.0254726,
-          "sr0_ann": 0.561318,
-          "dsr": 0.959794,
-          "z": 1.7483,
+          "n_trials": 3115,
+          "n_trial_sharpes": 6134,
+          "var_trial_sharpe_ann": 0.0253436,
+          "sr0_ann": 0.567591,
+          "dsr": 0.956591,
+          "z": 1.71243,
           "psr_vs_zero": 1.0
         },
         "flowclock_supply_calendar": {
@@ -12360,12 +12360,12 @@
           "n_days": 7943,
           "skew": 0.473973,
           "kurtosis": 11.3763,
-          "n_trials": 2594,
-          "n_trial_sharpes": 5113,
-          "var_trial_sharpe_ann": 0.0254726,
-          "sr0_ann": 0.561318,
-          "dsr": 0.913061,
-          "z": 1.35985,
+          "n_trials": 3115,
+          "n_trial_sharpes": 6134,
+          "var_trial_sharpe_ann": 0.0253436,
+          "sr0_ann": 0.567591,
+          "dsr": 0.907302,
+          "z": 1.32432,
           "psr_vs_zero": 0.999997
         },
         "futures_month_end_zn": {
@@ -12373,12 +12373,12 @@
           "n_days": 3565,
           "skew": 0.422138,
           "kurtosis": 46.7472,
-          "n_trials": 2594,
-          "n_trial_sharpes": 5113,
-          "var_trial_sharpe_ann": 0.0254726,
-          "sr0_ann": 0.561318,
-          "dsr": 0.79933,
-          "z": 0.839231,
+          "n_trials": 3115,
+          "n_trial_sharpes": 6134,
+          "var_trial_sharpe_ann": 0.0253436,
+          "sr0_ann": 0.567591,
+          "dsr": 0.792671,
+          "z": 0.815724,
           "psr_vs_zero": 0.998373
         },
         "futures_supply_calendar": {
@@ -12386,17 +12386,17 @@
           "n_days": 3565,
           "skew": 0.479723,
           "kurtosis": 10.1851,
-          "n_trials": 2594,
-          "n_trial_sharpes": 5113,
-          "var_trial_sharpe_ann": 0.0254726,
-          "sr0_ann": 0.561318,
-          "dsr": 0.151939,
-          "z": -1.02815,
+          "n_trials": 3115,
+          "n_trial_sharpes": 6134,
+          "var_trial_sharpe_ann": 0.0253436,
+          "sr0_ann": 0.567591,
+          "dsr": 0.146437,
+          "z": -1.05184,
           "psr_vs_zero": 0.862421
         }
       },
-      "N_distinct_variants": 518,
-      "N_total_logged_runs": 2594,
+      "N_distinct_variants": 519,
+      "N_total_logged_runs": 3115,
       "note": "Bailey & Lopez de Prado (src/stats.py). Headline (one entry per strategy): N = distinct variants tested (distinct config_hash in runs/trials.csv), V = variance of their Sharpes (both columns, latest row per config_hash). at_total_logged_runs: N = every row, V over every row (the Phase 5 rule). Skew and kurtosis from each strategy's daily excess returns (CLAUDE.md section 15)"
     },
     "event_path": {
@@ -17901,9 +17901,9 @@
     }
   },
   "trials": {
-    "count": 2594,
-    "total_logged_runs": 2594,
-    "distinct_variants": 518,
+    "count": 3115,
+    "total_logged_runs": 3115,
+    "distinct_variants": 519,
     "n_configs_with_differing_sharpes": 0,
     "rule": "count = total logged runs = rows of runs/trials.csv (never deleted); distinct variants = distinct config_hash, N of the headline Deflated Sharpe (CLAUDE.md section 15)"
   },
@@ -24478,6 +24478,406 @@
       "share_of_total_gap_on_A_and_S": 0.111236,
       "mean_total_gap_bp": 1.62418,
       "mean_total_gap_t": 4.24921
+    }
+  },
+  "H8": {
+    "prereg": {
+      "file": "PREREG_DEALERS.md",
+      "tag": "prereg-dealers",
+      "commit": "15f67bc"
+    },
+    "in_sample": {
+      "prediction": "c > 0, one-sided p < 0.05",
+      "model": "LS = a + b x zS_pre + c x zD; LS = R_post - R_pre (%), cash constant-maturity excess returns, before costs; SEs clustered by the Monday-Sunday week of A (CR1, normal); p = 1 - Phi(t_c)",
+      "c": {
+        "b": 0.00568273,
+        "se": 0.0375408,
+        "t": 0.151375,
+        "ci": [
+          -0.0678959,
+          0.0792614
+        ],
+        "p_one_sided": 0.43984
+      },
+      "b_zS": {
+        "b": 0.138749,
+        "se": 0.0520702,
+        "t": 2.66465,
+        "ci": [
+          0.036693,
+          0.240804
+        ]
+      },
+      "a": {
+        "b": 0.222212,
+        "se": 0.0509118,
+        "t": 4.36465,
+        "ci": [
+          0.122427,
+          0.321998
+        ]
+      },
+      "n": 1191,
+      "n_clusters": 512,
+      "sample": [
+        "1999-02-24",
+        "2024-07-17"
+      ],
+      "pass": false,
+      "statement": "H8 fails: across 1191 auctions from 1999-02-24 to 2024-07-17, a 1-sd higher primary dealer coupon position at A-5 goes with a +0.006 percentage-point change in the auction long-short return (t = 0.15, one-sided p = 0.440; pass needs c > 0 and p < 0.05).",
+      "secondary": {
+        "pre_leg": {
+          "c": {
+            "b": 0.0382162,
+            "se": 0.0252842,
+            "t": 1.51147,
+            "ci": [
+              -0.0113399,
+              0.0877724
+            ],
+            "p_one_sided": 0.0653348
+          },
+          "b_zS": {
+            "b": 0.0481141,
+            "se": 0.0368043,
+            "t": 1.30729,
+            "ci": [
+              -0.0240211,
+              0.120249
+            ]
+          },
+          "a": {
+            "b": 0.0854935,
+            "se": 0.0351965,
+            "t": 2.42903,
+            "ci": [
+              0.0165096,
+              0.154477
+            ]
+          },
+          "n": 1191,
+          "n_clusters": 512,
+          "sample": [
+            "1999-02-24",
+            "2024-07-17"
+          ],
+          "y": "-R_pre (the short pre leg's return, %)"
+        },
+        "post_leg": {
+          "c": {
+            "b": -0.0325335,
+            "se": 0.0264155,
+            "t": -1.23161,
+            "ci": [
+              -0.0843069,
+              0.0192399
+            ],
+            "p_one_sided": 0.890952
+          },
+          "b_zS": {
+            "b": 0.0906347,
+            "se": 0.0379906,
+            "t": 2.38572,
+            "ci": [
+              0.0161745,
+              0.165095
+            ]
+          },
+          "a": {
+            "b": 0.136719,
+            "se": 0.0390271,
+            "t": 3.50318,
+            "ci": [
+              0.0602273,
+              0.213211
+            ]
+          },
+          "n": 1191,
+          "n_clusters": 512,
+          "sample": [
+            "1999-02-24",
+            "2024-07-17"
+          ],
+          "y": "R_post (%)"
+        },
+        "by_decade": {
+          "1993-1999": {
+            "c": {
+              "b": -0.168242,
+              "se": 0.319019,
+              "t": -0.527373,
+              "ci": [
+                -0.793509,
+                0.457024
+              ],
+              "p_one_sided": 0.701033
+            },
+            "b_zS": {
+              "b": 0.514967,
+              "se": 0.39542,
+              "t": 1.30233,
+              "ci": [
+                -0.260042,
+                1.28998
+              ]
+            },
+            "a": {
+              "b": 0.215248,
+              "se": 0.350188,
+              "t": 0.614665,
+              "ci": [
+                -0.471108,
+                0.901604
+              ]
+            },
+            "n": 18,
+            "n_clusters": 14,
+            "sample": [
+              "1999-02-24",
+              "1999-12-22"
+            ]
+          },
+          "2000-2009": {
+            "c": {
+              "b": 0.00873253,
+              "se": 0.0778539,
+              "t": 0.112166,
+              "ci": [
+                -0.143858,
+                0.161323
+              ],
+              "p_one_sided": 0.455346
+            },
+            "b_zS": {
+              "b": 0.25505,
+              "se": 0.0787607,
+              "t": 3.2383,
+              "ci": [
+                0.100682,
+                0.409418
+              ]
+            },
+            "a": {
+              "b": 0.298538,
+              "se": 0.098398,
+              "t": 3.03398,
+              "ci": [
+                0.105681,
+                0.491394
+              ]
+            },
+            "n": 307,
+            "n_clusters": 186,
+            "sample": [
+              "2000-01-26",
+              "2009-12-30"
+            ]
+          },
+          "2010-2019": {
+            "c": {
+              "b": 0.00351167,
+              "se": 0.0477137,
+              "t": 0.0735989,
+              "ci": [
+                -0.0900054,
+                0.0970287
+              ],
+              "p_one_sided": 0.470665
+            },
+            "b_zS": {
+              "b": 0.148793,
+              "se": 0.078637,
+              "t": 1.89215,
+              "ci": [
+                -0.00533245,
+                0.302919
+              ]
+            },
+            "a": {
+              "b": 0.281772,
+              "se": 0.0624205,
+              "t": 4.51409,
+              "ci": [
+                0.15943,
+                0.404114
+              ]
+            },
+            "n": 577,
+            "n_clusters": 193,
+            "sample": [
+              "2010-01-12",
+              "2019-12-26"
+            ]
+          },
+          "2020-2024": {
+            "c": {
+              "b": -0.0359521,
+              "se": 0.0789693,
+              "t": -0.455267,
+              "ci": [
+                -0.190729,
+                0.118825
+              ],
+              "p_one_sided": 0.675542
+            },
+            "b_zS": {
+              "b": 0.0706326,
+              "se": 0.13051,
+              "t": 0.541203,
+              "ci": [
+                -0.185163,
+                0.326428
+              ]
+            },
+            "a": {
+              "b": 0.0242435,
+              "se": 0.153532,
+              "t": 0.157905,
+              "ci": [
+                -0.276674,
+                0.325161
+              ]
+            },
+            "n": 289,
+            "n_clusters": 119,
+            "sample": [
+              "2020-01-07",
+              "2024-07-17"
+            ]
+          }
+        },
+        "note": "reported, not pass conditions; c_pre + c_post = c"
+      },
+      "events": {
+        "n_h6c": 1665,
+        "n_used": 1191,
+        "n_without_zD": {
+          "none_known": 182,
+          "segment_short": 292
+        },
+        "by_segment_of_X0": {
+          "SBN2013": 54,
+          "SBN2015": 449,
+          "SBN2022": 126,
+          "SBP2001": 51,
+          "SBP2013": 511
+        },
+        "by_tenor": {
+          "DGS10": 214,
+          "DGS2": 249,
+          "DGS20": 34,
+          "DGS3": 156,
+          "DGS30": 157,
+          "DGS5": 231,
+          "DGS7": 150
+        }
+      },
+      "zD_used": {
+        "mean": 0.153366,
+        "sd": 1.38234,
+        "min": -3.0,
+        "max": 3.0,
+        "share_clipped": 0.0209908,
+        "latest_asof_used": "2024-06-26"
+      }
+    },
+    "oos": {
+      "status": "test window runs once, after gate2-frozen (with the Gate 2 --oos run)"
+    },
+    "data": {
+      "source": "NY Fed Markets Data API, primary dealer statistics (FR 2004A): net positions in Treasury coupons excluding TIPS, all maturities (sum of the maturity buckets of each series break)",
+      "snapshot": "data/snapshot/pd_treasury_positions.csv",
+      "keys": {
+        "SBP2001": [
+          "PDPUSGCS5LNOP",
+          "PDPUSGCS5MNOP"
+        ],
+        "SBP2013": [
+          "PDPUSGCS3LNOP",
+          "PDPUSGCS36NOP",
+          "PDPUSGCS611NOP",
+          "PDPUSGCSM11NOP"
+        ],
+        "SBN2013": [
+          "PDPOSGSC-L2",
+          "PDPOSGSC-G2L3",
+          "PDPOSGSC-G3L6",
+          "PDPOSGSC-G6L7",
+          "PDPOSGSC-G7L11",
+          "PDPOSGSC-G11"
+        ],
+        "SBN2015": [
+          "PDPOSGSC-L2",
+          "PDPOSGSC-G2L3",
+          "PDPOSGSC-G3L6",
+          "PDPOSGSC-G6L7",
+          "PDPOSGSC-G7L11",
+          "PDPOSGSC-G11"
+        ],
+        "SBN2022": [
+          "PDPOSGSC-L2",
+          "PDPOSGSC-G2L3",
+          "PDPOSGSC-G3L6",
+          "PDPOSGSC-G6L7",
+          "PDPOSGSC-G7L11",
+          "PDPOSGSC-G11L21",
+          "PDPOSGSC-G21"
+        ],
+        "SBN2024": [
+          "PDPOSGSC-L2",
+          "PDPOSGSC-G2L3",
+          "PDPOSGSC-G3L6",
+          "PDPOSGSC-G6L7",
+          "PDPOSGSC-G7L11",
+          "PDPOSGSC-G11L21",
+          "PDPOSGSC-G21"
+        ]
+      },
+      "series_breaks": {
+        "SBP2001": [
+          "1998-01-28",
+          "2001-06-30"
+        ],
+        "SBP2013": [
+          "2001-07-01",
+          "2013-03-31"
+        ],
+        "SBN2013": [
+          "2013-04-01",
+          "2014-12-31"
+        ],
+        "SBN2015": [
+          "2015-01-01",
+          "2022-01-04"
+        ],
+        "SBN2022": [
+          "2022-01-05",
+          "2024-07-02"
+        ],
+        "SBN2024": [
+          "2024-07-03",
+          "9999-12-31"
+        ]
+      },
+      "checks_buckets_sum_to_published_total": {
+        "SBP2013": {
+          "n_weeks": 613,
+          "max_abs_diff_musd": 0.0
+        },
+        "SBN": {
+          "n_weeks": 600,
+          "max_abs_diff_musd": 0.0
+        }
+      },
+      "n_releases_through_is_end_by_segment": {
+        "SBN2013": 92,
+        "SBN2015": 365,
+        "SBN2022": 130,
+        "SBN2024": 13,
+        "SBP2001": 179,
+        "SBP2013": 613
+      },
+      "publication_rule": "first bond business day on or after as-of + 8 days; known at the close of X only if published before X (NY Fed posts Thursdays ~4:15 PM ET)"
     }
   },
   "costs": {
