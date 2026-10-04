@@ -60,6 +60,31 @@ reproduces every number.
 `GQH_DEV=1` is for the team only. It switches on the pre-registration guards and appends every run to
 `runs/trials.csv`, which changes `results.json["trials"]`. Leave it unset to reproduce.
 
+## Test window (Gate 2)
+
+The test window is 2024-10-01 to 2026-09-30. It is evaluated once by `python run_all.py --oos`, with the same code
+as the in-sample run (rules: `CLAUDE.md` section 17). The team runs it after tagging the frozen code `gate2-frozen`:
+
+```bash
+GQH_DEV=1 python run_all.py --oos                  # downloads the public test-window rows, prints the Databento estimate, stops
+GQH_DEV=1 python run_all.py --oos --databento-ok   # after the team approves the estimate: pulls the futures data and runs
+```
+
+Every test-window download refuses unless HEAD carries the `gate2-frozen` tag and the working tree is clean, in every
+mode. The run happens once and is recorded in `runs/oos_run.log`. A second run needs `--force-rerun` and is logged
+as a forced rerun. Nothing is printed or written until every block is computed.
+
+Results land in `outputs/results_oos.json`, which is merged into `outputs/results.json` as `oos`, `flowclock.oos`,
+`H8.oos` and `futures.oos`. The run also writes the `outputs/tables/*_oos.csv` tables (futures: derived tables only)
+and `outputs/figures/equity_curve_oos.png`. The downloaded public rows are committed to `data/oos/` with checksums
+and a vintage. A keyless clone then reproduces the block with no download and no key: the plain `python run_all.py`
+merges the committed `results_oos.json`, and `python run_all.py --oos` recomputes it from `data/oos/` and the
+committed futures `*_oos` tables.
+
+The public-data snapshot (downloaded Oct 3, 2026) includes rows after 2024-09-30. Every in-sample loader cuts at
+2024-09-30, the date guard refused later dates, and no test-window statistic was computed before the gate2-frozen
+tag. `--oos` downloads its test-window rows fresh and never reads those rows.
+
 ## Model
 
 A systematic strategy with three parts, all fixed in advance:

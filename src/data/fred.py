@@ -24,7 +24,7 @@ import pandas as pd
 import requests
 
 from config.settings import CURVE_KNOTS, IS_END, RF_SERIES
-from src.data.snapshot import SNAPSHOT_DIR
+from src.data.snapshot import active_dir
 
 FRED_CSV_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv"
 SERIES = list(CURVE_KNOTS) + [RF_SERIES]
@@ -65,9 +65,10 @@ def mask_gaps(s: pd.Series) -> pd.Series:
 
 
 def load_series(series_id: str, end: str | None = IS_END, mask_known_gaps: bool = True,
-                snapshot_dir: Path = SNAPSHOT_DIR) -> pd.Series:
-    """One FRED series from the snapshot, dates <= end, missing values left as NaN (no filling here)."""
-    text = (snapshot_dir / snapshot_name(series_id)).read_text(encoding="utf-8")
+                snapshot_dir: Path | None = None) -> pd.Series:
+    """One FRED series from the snapshot (src/data/snapshot.py::active_dir unless given), dates <= end, missing
+    values left as NaN (no filling here)."""
+    text = ((snapshot_dir or active_dir()) / snapshot_name(series_id)).read_text(encoding="utf-8")
     s = parse_fred_csv(text, series_id)
     if mask_known_gaps:
         s = mask_gaps(s)
@@ -91,7 +92,7 @@ def ffill_short_gaps(s: pd.Series, max_gap: int = MAX_FFILL_DAYS) -> pd.Series:
 
 
 def load_frame(series: list[str] | None = None, end: str | None = IS_END, index: pd.DatetimeIndex | None = None,
-               fill: bool = True, snapshot_dir: Path = SNAPSHOT_DIR) -> pd.DataFrame:
+               fill: bool = True, snapshot_dir: Path | None = None) -> pd.DataFrame:
     """Several series side by side; optionally reindexed to `index` (e.g. bond business days) with short-gap fill."""
     series = SERIES if series is None else series
     df = pd.concat([load_series(sid, end=end, snapshot_dir=snapshot_dir) for sid in series], axis=1)

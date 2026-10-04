@@ -222,9 +222,12 @@ def size_info(m: Market, root: str, tenor: str, entry: pd.Timestamp, exit_: pd.T
     return out
 
 
-def prepare_legs(legs: pd.DataFrame, m: Market, yields: pd.DataFrame) -> pd.DataFrame:
+def prepare_legs(legs: pd.DataFrame, m: Market, yields: pd.DataFrame,
+                 first_ok_given: dict | None = None) -> pd.DataFrame:
     """Contract, DV01 and status per leg, with the TN / UB fallback rule applied (module docstring).
-    legs: src/flowclock.py LEG_COLS plus `product` (the mapped root)."""
+    legs: src/flowclock.py LEG_COLS plus `product` (the mapped root). first_ok_given: {product: first sizable entry
+    date or None} to use for the fallback rule instead of the date found on these legs; the --oos run passes the
+    in-sample dates, so a test-window leg is never sent to the fallback product (CLAUDE.md section 17)."""
     prim = [size_info(m, p, t, e, x, yields) for p, t, e, x in
             zip(legs["product"], legs["tenor"], legs["entry"], legs["exit"])]
     prim = pd.DataFrame(prim, index=legs.index)
@@ -232,10 +235,12 @@ def prepare_legs(legs: pd.DataFrame, m: Market, yields: pd.DataFrame) -> pd.Data
     for p in legs["product"].unique():
         ok = (legs["product"] == p) & (prim["status"] == STATUS_OK)
         first_ok[p] = legs.loc[ok, "entry"].min() if ok.any() else pd.Timestamp.max
+    rule = first_ok if first_ok_given is None else {
+        p: (pd.Timestamp.max if d is None else pd.Timestamp(d)) for p, d in first_ok_given.items()}
     rows = []
     for i, leg in legs.iterrows():
         p = leg["product"]
-        if p in FALLBACK and leg["entry"] < first_ok[p]:
+        if p in FALLBACK and leg["entry"] < rule[p]:
             info = size_info(m, FALLBACK[p], leg["tenor"], leg["entry"], leg["exit"], yields)
             rows.append({**info, "fallback_used": True})
         else:

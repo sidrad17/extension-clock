@@ -35,7 +35,7 @@ import requests
 
 from config.settings import IS_END
 from src.data.pd_volume import SERIES_URL, fetch_series
-from src.data.snapshot import SNAPSHOT_DIR
+from src.data.snapshot import active_dir
 from src.trial_log import assert_dealers_prereg
 
 SNAPSHOT_NAME = "pd_treasury_positions.csv"
@@ -115,7 +115,7 @@ def parse(df: pd.DataFrame, end: str | None = IS_END) -> pd.DataFrame:
 def load_positions(end: str | None = IS_END, path=None) -> pd.DataFrame:
     """Weekly coupon positions from the snapshot (parse()), as-of dates <= end."""
     assert_dealers_prereg()
-    return parse(pd.read_csv(path or SNAPSHOT_DIR / SNAPSHOT_NAME, dtype=str), end=end)
+    return parse(pd.read_csv(path or active_dir() / SNAPSHOT_NAME, dtype=str), end=end)
 
 
 __all__ = ["SERIES_URL", "SNAPSHOT_NAME", "COUPON_KEYS", "SERIES_BREAKS", "all_keys", "download", "parse",

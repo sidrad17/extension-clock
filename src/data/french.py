@@ -21,7 +21,7 @@ import pandas as pd
 import requests
 
 from config.settings import IS_END
-from src.data.snapshot import CACHE_DIR, SNAPSHOT_DIR
+from src.data.snapshot import CACHE_DIR, active_dir
 
 FRENCH_URL = ("https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/"
               "F-F_Research_Data_Factors_daily_CSV.zip")
@@ -76,7 +76,7 @@ def derive_pension_input(factors: pd.DataFrame, start: str = DERIVED_START) -> p
 
 def load_pension_input(end: str | None = IS_END, path: Path | None = None) -> pd.Series:
     """Daily equity total return in percent from the snapshot, dates <= end."""
-    path = path or SNAPSHOT_DIR / SNAPSHOT_NAME
+    path = path or active_dir() / SNAPSHOT_NAME
     df = pd.read_csv(path)
     s = pd.Series(df["mkt_total_pct"].to_numpy(float),
                   index=pd.DatetimeIndex(pd.to_datetime(df["date"], format="%Y-%m-%d"), name="date"),

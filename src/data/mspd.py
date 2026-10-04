@@ -19,7 +19,7 @@ import pandas as pd
 import requests
 
 from config.settings import IS_END
-from src.data.snapshot import SNAPSHOT_DIR
+from src.data.snapshot import active_dir
 
 MSPD_TABLE1_URL = "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/debt/mspd/mspd_table_1"
 SNAPSHOT_NAME = "mspd_notes_bonds.csv"
@@ -50,7 +50,7 @@ def notes_bonds(raw: pd.DataFrame) -> pd.DataFrame:
 
 def load_mspd(end: str | None = IS_END, path: Path | None = None) -> pd.DataFrame:
     """Wide monthly table ($ millions): notes_total, bonds_total, notes_public, bonds_public, notes_bonds_total."""
-    path = path or SNAPSHOT_DIR / SNAPSHOT_NAME
+    path = path or active_dir() / SNAPSHOT_NAME
     df = pd.read_csv(path, dtype={"security_class_desc": str})
     df["record_date"] = pd.to_datetime(df["record_date"], format="%Y-%m-%d")
     if end is not None:

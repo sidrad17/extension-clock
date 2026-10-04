@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sys
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -23,6 +24,24 @@ CHECKSUMS = SNAPSHOT_DIR / "CHECKSUMS.sha256"
 VINTAGE_JSON = SNAPSHOT_DIR / "vintage.json"
 VINTAGE_MD = SNAPSHOT_DIR / "VINTAGE.md"
 FOMC_CSV = REPO_ROOT / "config" / "fomc_dates.csv"
+
+_READING: list[Path] = []
+
+
+def active_dir() -> Path:
+    """The directory the data loaders read: the committed snapshot, or inside reading_from() another directory with
+    the same file layout (the --oos data view, CLAUDE.md section 17)."""
+    return _READING[-1] if _READING else SNAPSHOT_DIR
+
+
+@contextmanager
+def reading_from(directory: Path):
+    """Point every snapshot loader (src/data/*.py) at `directory` for the duration of the block."""
+    _READING.append(Path(directory))
+    try:
+        yield
+    finally:
+        _READING.pop()
 
 
 def utc_now() -> str:

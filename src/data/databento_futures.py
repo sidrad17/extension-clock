@@ -50,7 +50,7 @@ from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 import pandas as pd
 
-from config.settings import FUTURES, IS_END
+from config.settings import FUTURES, IS_END, OOS_END, OOS_START
 from src.data.snapshot import CACHE_DIR, REPO_ROOT
 
 DATASET = "GLBX.MDP3"
@@ -65,8 +65,20 @@ QUARTER_CODES = {"H": 3, "M": 6, "U": 9, "Z": 12}
 N_WORKERS = 4
 
 
+# Test window (CLAUDE.md section 17): the same parents and schemas, pulled only by `run_all.py --oos --databento-ok`
+# after the Gate 2 guard and the team's OK of the printed estimate, into their own git-ignored cache.
+OOS_PULL_START = OOS_START
+OOS_PULL_END = {"statistics": "2026-10-01T12:00", "ohlcv-1d": "2026-10-01"}
+OOS_RAW_DIR = CACHE_DIR / "databento_oos"
+OOS_DEF_DIR = OOS_RAW_DIR / "definition"
+
+
 class NoDatabento(RuntimeError):
     """No key (or no databento package) and no cached raw data: the futures layer cannot be rebuilt."""
+
+
+class NeedApproval(RuntimeError):
+    """The test-window pull costs money: the estimate was printed and nothing was pulled (CLAUDE.md section 17)."""
 
 
 # ------------------------------------------------------------------------------------------------ client, pull
@@ -132,9 +144,9 @@ def cost_estimate(c, days: list[pd.Timestamp], bulk: list[str]) -> dict:
     return out
 
 
-def print_cost(est: dict) -> float:
+def print_cost(est: dict, span: str = f"{DATA_START} to {IS_END}") -> float:
     total = sum(v["usd"] for v in est.values())
-    print(f"Databento cost estimate ({DATASET}, {', '.join(PARENTS)}, {DATA_START} to {IS_END}):")
+    print(f"Databento cost estimate ({DATASET}, {', '.join(PARENTS)}, {span}):")
     for s, v in est.items():
         print(f"  {s:38s} {v['mb']:9.2f} MB  ${v['usd']:.4f}")
     print(f"  total{'':43s}${total:.4f}  (budget ${DATABENTO_BUDGET_USD:.2f})")
@@ -166,13 +178,15 @@ def download(budget: float = DATABENTO_BUDGET_USD) -> None:
     refine_tick_changes()
 
 
-def refine_tick_changes() -> list[pd.Timestamp]:
+def refine_tick_changes(dirs: tuple | None = None, dest=None) -> list[pd.Timestamp]:
     """Between two snapshots whose tick sizes differ for a product, find the first weekday with the new tick by
-    bisection (one-day requests, cached). Returns the change dates found."""
+    bisection (one-day requests, cached). Returns the change dates found. dirs: the snapshot directories read
+    together (default the in-sample one); dest: where new one-day snapshots go (default the in-sample one)."""
     found = []
     c = None
+    dest = DEF_DIR if dest is None else dest
     while True:
-        changes = _tick_change_intervals(load_definition_snapshots())
+        changes = _tick_change_intervals(load_definition_snapshots(dirs))
         todo = []
         for lo, hi in changes:
             mid_days = pd.bdate_range(lo + pd.Timedelta(days=1), hi - pd.Timedelta(days=1))
@@ -186,7 +200,7 @@ def refine_tick_changes() -> list[pd.Timestamp]:
         est = sum(_parallel(lambda d: float(c.metadata.get_cost(**def_request(d))), todo))
         if est > DATABENTO_BUDGET_USD:
             raise RuntimeError(f"definition refinement estimate ${est:.2f} is above the budget")
-        _parallel(lambda d: _pull(c, def_request(d), def_path(d)), todo)
+        _parallel(lambda d: _pull(c, def_request(d), dest / def_path(d).name), todo)
 
 
 def _tick_change_intervals(defs: pd.DataFrame) -> list[tuple[pd.Timestamp, pd.Timestamp]]:
@@ -204,6 +218,104 @@ def _tick_change_intervals(defs: pd.DataFrame) -> list[tuple[pd.Timestamp, pd.Ti
 
 def have_cache() -> bool:
     return all(raw_path(s).exists() for s in BULK_SCHEMAS) and all(def_path(d).exists() for d in snapshot_days())
+
+
+# ------------------------------------------------------------------------------------------------ test window
+
+def oos_raw_path(schema: str):
+    return OOS_RAW_DIR / f"glbx_{schema}_{OOS_PULL_START}_{OOS_PULL_END[schema].replace(':', '')}.dbn.zst"
+
+
+def oos_request(schema: str) -> dict:
+    return request(schema, OOS_PULL_START, OOS_PULL_END[schema])
+
+
+def oos_snapshot_days() -> list[pd.Timestamp]:
+    """First weekday of each test-window month (2024-10 .. 2026-09)."""
+    return snapshot_days(OOS_PULL_START, OOS_END)
+
+
+def have_oos_cache() -> bool:
+    return (all(oos_raw_path(s).exists() for s in BULK_SCHEMAS)
+            and all((OOS_DEF_DIR / def_path(d).name).exists() for d in oos_snapshot_days()))
+
+
+def download_oos(approved: bool, budget: float = DATABENTO_BUDGET_USD) -> dict:
+    """Test-window pull (CLAUDE.md section 17), only after the Gate 2 guard (run_all.py --oos). Prints Databento's
+    estimate for the missing pieces; without `approved` (--databento-ok, given after the team's OK) it raises
+    NeedApproval and pulls nothing. Then the tick-change search across the in-sample and test-window snapshots.
+    Returns {"estimate_usd", "pulled"}. Needs HEAD tagged gate2-frozen and a clean tree in every mode, before any
+    request, the metadata calls included (src/trial_log.py::assert_gate2_download)."""
+    from src.trial_log import assert_gate2_download
+    assert_gate2_download()
+    bulk = [s for s in BULK_SCHEMAS if not oos_raw_path(s).exists()]
+    days = [d for d in oos_snapshot_days() if not (OOS_DEF_DIR / def_path(d).name).exists()]
+    total = 0.0
+    if bulk or days:
+        c = client()
+        est = {s: {"usd": float(c.metadata.get_cost(**oos_request(s))),
+                   "mb": float(c.metadata.get_billable_size(**oos_request(s))) / 1e6} for s in bulk}
+        if days:
+            usd = _parallel(lambda d: float(c.metadata.get_cost(**def_request(d))), days)
+            mb = _parallel(lambda d: float(c.metadata.get_billable_size(**def_request(d))) / 1e6, days)
+            est[f"definition ({len(days)} one-day snapshots)"] = {"usd": float(sum(usd)), "mb": float(sum(mb))}
+        total = print_cost(est, f"{OOS_PULL_START} to {OOS_END}, test window")
+        if total > budget:
+            raise RuntimeError(f"Databento estimate ${total:.2f} is above the budget ${budget:.2f}; nothing pulled.")
+        if not approved:
+            raise NeedApproval(f"Databento test-window estimate ${total:.2f} printed; nothing pulled. After the team "
+                               f"approves it: python run_all.py --oos --databento-ok")
+        for s in bulk:
+            _pull(c, oos_request(s), oos_raw_path(s))
+            print(f"  pulled {s} ({oos_raw_path(s).stat().st_size / 1e6:.1f} MB)")
+        _parallel(lambda d: _pull(c, def_request(d), OOS_DEF_DIR / def_path(d).name), days)
+        if days:
+            print(f"  pulled {len(days)} definition snapshots")
+    refine_tick_changes(dirs=(DEF_DIR, OOS_DEF_DIR), dest=OOS_DEF_DIR)
+    return {"estimate_usd": total, "pulled": bulk + ([f"{len(days)} definition snapshots"] if days else [])}
+
+
+def _settlements(path, end) -> pd.DataFrame:
+    import databento as db
+    s = _read(path)
+    return settlements_from_stats(s[s["stat_type"] == db.StatType.SETTLEMENT_PRICE], end)
+
+
+def _volume(path, end) -> pd.DataFrame:
+    o = _read(path).reset_index()
+    o["date"] = o["ts_event"].dt.tz_localize(None).dt.normalize()
+    o = pd.concat([o, contract_ids(o["symbol"], o["date"])], axis=1)
+    o = o[o["contract"].notna() & (o["date"] <= pd.Timestamp(end))]
+    out = o.groupby(["contract", "root", "delivery", "date"], as_index=False)["volume"].sum()
+    return out.sort_values(["contract", "date"]).reset_index(drop=True)
+
+
+def splice_dates(base: pd.DataFrame, new: pd.DataFrame, col: str, split, end) -> pd.DataFrame:
+    """Rows of `base` dated <= split, then rows of `new` dated in (split, end] (CLAUDE.md section 17)."""
+    split, end = pd.Timestamp(split), pd.Timestamp(end)
+    b = base[base[col] <= split]
+    n = new[(new[col] > split) & (new[col] <= end)]
+    keys = ["contract", col]
+    out = pd.concat([b, n], ignore_index=True).sort_values(keys).reset_index(drop=True)
+    if out.duplicated(keys).any():
+        raise ValueError(f"spliced futures data: duplicate (contract, {col})")
+    return out
+
+
+def load_window(split, end, new_paths: dict | None = None) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """(settlements, volume) for the --oos path: the in-sample cache through `split`, then the files in `new_paths`
+    ({"statistics": path, "ohlcv-1d": path}; default the test-window pull) for dates in (split, end]. The
+    pseudo-window check passes the in-sample files as `new_paths` (each file is read once)."""
+    new_paths = new_paths or {s: oos_raw_path(s) for s in BULK_SCHEMAS}
+    out = []
+    for schema, fn, col in (("statistics", _settlements, "trade_date"), ("ohlcv-1d", _volume, "date")):
+        base_path, new_path = raw_path(schema), new_paths[schema]
+        if new_path == base_path:
+            base = new = fn(base_path, end)
+        else:
+            base, new = fn(base_path, split), fn(new_path, end)
+        out.append(splice_dates(base, new, col, split, end))
+    return out[0], out[1]
 
 
 # ------------------------------------------------------------------------------------------------ symbols
@@ -279,11 +391,13 @@ def load_volume(end=IS_END) -> pd.DataFrame:
     return out.sort_values(["contract", "date"]).reset_index(drop=True)
 
 
-def load_definition_snapshots() -> pd.DataFrame:
+def load_definition_snapshots(dirs: tuple | None = None) -> pd.DataFrame:
     """Every cached definition snapshot, quarterly outrights of FUTURES only. Columns: snapshot, contract, root,
-    delivery, raw_symbol, expiration, tick_size (points), face, point_value ($ per point), tick_value ($)."""
+    delivery, raw_symbol, expiration, tick_size (points), face, point_value ($ per point), tick_value ($).
+    dirs: snapshot directories read together (default the in-sample one; --oos adds the test-window one)."""
     frames = []
-    for p in sorted(DEF_DIR.glob("glbx_definition_*.dbn.zst")):
+    paths = [p for d in (dirs or (DEF_DIR,)) for p in d.glob("glbx_definition_*.dbn.zst")]
+    for p in sorted(paths, key=lambda q: q.name):
         d = _read(p)
         if d.empty:
             continue

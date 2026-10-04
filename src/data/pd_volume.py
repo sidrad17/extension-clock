@@ -36,7 +36,7 @@ import pandas as pd
 import requests
 
 from config.settings import IS_END
-from src.data.snapshot import SNAPSHOT_DIR
+from src.data.snapshot import active_dir
 
 API = "https://markets.newyorkfed.org/api/pd"
 SERIES_URL = API + "/get/{keyid}.json"
@@ -85,7 +85,7 @@ def parse(df: pd.DataFrame) -> pd.Series:
 
 def load_volume(end: str | None = IS_END, path=None) -> pd.Series:
     """Weekly volume from the snapshot, as-of dates <= end."""
-    s = parse(pd.read_csv(path or SNAPSHOT_DIR / SNAPSHOT_NAME, dtype=str))
+    s = parse(pd.read_csv(path or active_dir() / SNAPSHOT_NAME, dtype=str))
     return s if end is None else s.loc[: pd.Timestamp(end)]
 
 

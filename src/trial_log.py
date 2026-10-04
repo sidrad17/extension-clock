@@ -118,6 +118,20 @@ def assert_gate2() -> None:
         raise GateError("Gate 2: working tree is dirty; commit or stash before touching the test window.")
 
 
+def assert_gate2_download() -> None:
+    """Every test-window download (public data or Databento), in every mode, not only with GQH_DEV=1: HEAD tagged
+    gate2-frozen and a clean working tree (tightens rule 2; Oct 4, 2026). The keyless reproduction from the committed
+    data/oos/ downloads nothing and needs no tag."""
+    try:
+        tagged, dirty = GATE2_TAG in _head_tags(), _dirty()
+    except (OSError, subprocess.CalledProcessError) as e:
+        raise GateError(f"Gate 2: cannot read the git state ({e}); no test-window download outside a git checkout.")
+    if not tagged:
+        raise GateError(f"Gate 2: a test-window download needs HEAD tagged {GATE2_TAG!r}.")
+    if dirty:
+        raise GateError("Gate 2: working tree is dirty; a test-window download needs a clean tree.")
+
+
 def guard_end(end) -> None:
     """Call before producing any return or statistic: end=None (no cut-off) or end > IS_END needs Gate 2."""
     if end is None or pd.Timestamp(end) > pd.Timestamp(IS_END):
@@ -197,6 +211,15 @@ def read_trials(path=TRIALS_CSV) -> pd.DataFrame:
     for c in ("sharpe_fc", "sharpe_cal"):
         df[c] = pd.to_numeric(df[c].replace("", np.nan), errors="coerce")
     return df
+
+
+OOS_WINDOW_PREFIX = "oos"
+
+
+def in_sample_trials(trials: pd.DataFrame) -> pd.DataFrame:
+    """The log without the Gate 2 rows (window "oos*", CLAUDE.md section 17): the Deflated Sharpe deflates for
+    in-sample selection, so total_logged_runs and distinct_variants count in-sample rows only."""
+    return trials[~trials["window"].astype(str).str.startswith(OOS_WINDOW_PREFIX)]
 
 
 def trial_counts(trials: pd.DataFrame) -> dict:

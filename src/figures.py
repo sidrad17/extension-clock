@@ -245,6 +245,31 @@ def equity_curve(navs: dict, sharpes: dict, path: Path, sample: str, fut_navs: d
     return cap
 
 
+def equity_curve_oos(navs: dict, sharpes: dict, path: Path, sample: str, fut_navs: dict | None = None,
+                     fut_sharpes: dict | None = None) -> str:
+    """Test-window equity curves (CLAUDE.md section 17): excess-return NAV of each strategy from 1 at the start of
+    the window, net of costs; with fut_navs, a second panel with the futures legs."""
+    ticks = [0.8, 0.85, 0.9, 0.95, 1.0, 1.05, 1.1, 1.15, 1.2, 1.3, 1.4]
+    n = 1 if not fut_navs else 2
+    fig, axes = plt.subplots(n, 1, figsize=(7.0, 3.8 * n), squeeze=False)
+    _equity_panel(axes[0][0], navs, sharpes, ticks)
+    axes[0][0].set_title(f"Test window, cash, net of costs ({sample}; run once at Gate 2)", fontsize=10, loc="left",
+                         color=INK)
+    if fut_navs:
+        _equity_panel(axes[1][0], fut_navs, fut_sharpes, ticks)
+        axes[1][0].set_title(f"Test window, futures legs and the cash legs, net of costs ({sample})", fontsize=10,
+                             loc="left", color=INK)
+    fig.tight_layout()
+    fig.savefig(path, dpi=DPI)
+    plt.close(fig)
+    parts = [f"{k} {v.iloc[-1]:.2f}x (Sharpe {sharpes[k]:.2f})" for k, v in navs.items()]
+    cap = f"Test window, growth of 1 in excess of T-bills, net of costs: {'; '.join(parts)} ({sample})."
+    if fut_navs:
+        cap += " Futures: " + "; ".join(f"{k} {v.iloc[-1]:.2f}x (Sharpe {fut_sharpes[k]:.2f})"
+                                       for k, v in fut_navs.items()) + "."
+    return cap
+
+
 def capacity(curves: dict, path: Path, sample: str) -> str:
     """Figure 6: net Sharpe against capital (log scale) with square-root impact and the 5%-of-ADV cap."""
     fig, ax = plt.subplots(figsize=(5.6, 3.6))

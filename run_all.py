@@ -1,4 +1,4 @@
-"""Single entry point: --insample (default) | --futures | --oos | --refresh.
+"""Single entry point: --insample (default) | --futures | --oos | --oos-pseudo | --refresh.
 
 `python run_all.py` rebuilds every in-sample number from the committed snapshot (CLAUDE.md rule 4): checksums,
 index rebuild, signals, 10-year cash windows, H1 (+ components, PREREG_ADDENDUM.md (a)-(b)), H4, placebo and luck
@@ -23,7 +23,10 @@ Trials are appended to runs/trials.csv only with GQH_DEV=1; results.json reads t
 inputs from that log, so a run without GQH_DEV reproduces the committed numbers (src/trial_log.py). The headline
 Deflated Sharpe uses N = distinct variants (distinct config_hash); the one at N = every logged row is reported beside
 it (CLAUDE.md section 15).
-Dates after IS_END are never read here (rule 2). Scope: in-sample.
+Dates after IS_END are never read by the in-sample run (rule 2).
+`--oos` (Gate 2, CLAUDE.md section 17) runs every pre-registered test and strategy once on the test window
+2024-10-01 to 2026-09-30 with the same code paths, from test-window data it downloads after the gate2-frozen guard
+(evaluate_window, run_oos); `--oos-pseudo` runs that path on an in-sample pseudo-window as a check (run_oos_pseudo).
 """
 from __future__ import annotations
 
@@ -44,12 +47,12 @@ import config.costs as fcost  # noqa: E402
 import config.futures as fus  # noqa: E402
 from config.flowclock import EVENT_PATH, FC_TENORS, POST_LYZ_START, SA_START  # noqa: E402
 from config.settings import (COST_STRESS, ENTRY_OFFSET, EXIT_OFFSET, FUT_START, HEADLINE_FUTURE,  # noqa: E402
-                             HEADLINE_TENOR, IS_END, IS_START, PLACEBO_BDAYS, POSTPUB_START, REVERSAL_DAYS, RF_SERIES,
-                             TENORS)
-from src import figures, report  # noqa: E402
+                             HEADLINE_TENOR, IS_END, IS_START, OOS_END, OOS_START, PLACEBO_BDAYS, POSTPUB_START,
+                             REVERSAL_DAYS, RF_SERIES, TENORS)
+from src import figures, oos_eval, report  # noqa: E402
 from src import futures as fut  # noqa: E402
 from src.data import databento_futures as dbf  # noqa: E402
-from src.data import pd_positions  # noqa: E402
+from src.data import oos_data, pd_positions  # noqa: E402
 from src.auction_events import build_events, in_sample_mask, month_end_supply  # noqa: E402
 from src.backtest import (month_end_windows, placebo_windows, reversal_windows, run_curve_allocated,  # noqa: E402
                           run_strategy, window_returns, window_yield_change_bp)
@@ -62,7 +65,7 @@ from src.data.fomc import load_fomc_dates  # noqa: E402
 from src.data.fred import load_frame  # noqa: E402
 from src.data.french import load_pension_input  # noqa: E402
 from src.data.pd_volume import adv_known_at, load_volume  # noqa: E402
-from src.data.snapshot import verify_checksums, verify_or_exit  # noqa: E402
+from src.data.snapshot import REPO_ROOT, reading_from, utc_now, verify_checksums, verify_or_exit  # noqa: E402
 from src.flowclock import (DECADES, auction_event_paths, book_metrics, by_tenor, compare_sharpe,  # noqa: E402
                            demand_legs, event_returns, h6, h7, path_summary, run_book, supply_legs, tercile_by_rank)
 from src.index_rebuild import BUCKETS, RebuildConfig, config_dict, run_default  # noqa: E402
@@ -75,8 +78,9 @@ from src.signals import build_signals, past_zscore, pension_pressure  # noqa: E4
 from src.stats import deflated_sharpe  # noqa: E402
 from src.tests_h import (event_path_summary, event_paths, h1, h1_addendum, h1_components, h2, h2_panel,  # noqa: E402
                          h3, h4, h5, luck_candidates, luck_test, tercile_labels)
-from src.trial_log import (assert_flowclock_prereg, assert_gate1, dev_mode, git_state, log_trial,  # noqa: E402
-                           log_trials, read_trials, trial_count, trial_counts, trial_row)
+from src.trial_log import (GATE2_TAG, GateError, assert_flowclock_prereg, assert_gate1,  # noqa: E402
+                           assert_gate2_download, dev_mode, git_state, in_sample_trials, log_trial, log_trials,
+                           read_trials, trial_count, trial_counts, trial_row)
 
 VERSION = "v6 (H8: in-sample; cash and futures; month-end leg, Flow Clock, CMT switch diagnostic, H8 dealer test)"
 PENDING = ["oos, flowclock.oos and H8.oos (Gate 2 only)",
@@ -258,7 +262,7 @@ def insample(futures_mode: str = "tables") -> None:
                                                                      sample, **fig_fut)}
 
     # Deflated Sharpe: every trial of this run is logged above, so the log is final for this run
-    tc = trial_counts(read_trials())
+    tc = trial_counts(in_sample_trials(read_trials()))      # oos_* rows are not in-sample variants (section 17)
     dsr_inputs = {"forecast_sized": strat["forecast_sized"].daily["excess"],
                   "calendar_only": strat["calendar_only"].daily["excess"],
                   "curve_allocated": p5["curve"].daily["excess"],
@@ -319,6 +323,9 @@ def insample(futures_mode: str = "tables") -> None:
                      "n_configs_with_differing_sharpes": tc["n_configs_with_differing_sharpes"],
                      "rule": "count = total logged runs = rows of runs/trials.csv (never deleted); distinct variants "
                              "= distinct config_hash, N of the headline Deflated Sharpe (CLAUDE.md section 15)"}
+    if OOS_JSON.exists():                   # the Gate 2 run's blocks (section 17), so a fresh clone reproduces them
+        import json
+        merge_oos(res, json.loads(OOS_JSON.read_text(encoding="utf-8")))
     report.write_results(res)
     step(f"wrote outputs/results.json (logged runs {res['trials']['count']}, distinct variants "
          f"{res['trials']['distinct_variants']})", t0)
@@ -867,6 +874,16 @@ def fut_paths() -> dict:
     return {k: report.OUTPUTS / "tables" / v for k, v in FUT_TABLES.items()}
 
 
+def read_fut_tables(legs_src, daily_src) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """The derived futures tables (paths or text buffers) as every futures number is computed from them."""
+    str_cols = ("leg_id", "unit_id", "kind", "tenor", "product", "root", "contract", "status")
+    leg_t = pd.read_csv(legs_src, dtype={c: str for c in str_cols}, keep_default_na=False,
+                        na_values={c: [""] for c in fut.LEG_TABLE_COLS if c not in str_cols},
+                        float_precision="round_trip")
+    day_t = pd.read_csv(daily_src, index_col="date", float_precision="round_trip")
+    return leg_t, day_t
+
+
 def futures(*, cash_cal, cash_supply_daily, cash_supply_gross_daily, rf, git: dict, t0: float) -> dict | None:
     """Futures layer, in-sample (CLAUDE.md 7.9 and section 15; src/futures.py, src/data/databento_futures.py).
 
@@ -884,12 +901,7 @@ def futures(*, cash_cal, cash_supply_daily, cash_supply_gross_daily, rf, git: di
         print("futures layer skipped: no derived futures tables (outputs/tables/futures_*) and no --futures run; "
               "core results unchanged.", flush=True)
         return None
-    leg_t = pd.read_csv(paths["legs"], dtype={c: str for c in ("leg_id", "unit_id", "kind", "tenor", "product", "root",
-                                                                "contract", "status")}, keep_default_na=False,
-                        na_values={c: [""] for c in fut.LEG_TABLE_COLS if c not in (
-                            "leg_id", "unit_id", "kind", "tenor", "product", "root", "contract", "status")},
-                        float_precision="round_trip")
-    day_t = pd.read_csv(paths["daily"], index_col="date", float_precision="round_trip")
+    leg_t, day_t = read_fut_tables(paths["legs"], paths["daily"])
     checks = json.loads(paths["checks"].read_text(encoding="utf-8"))
     res = fut.from_tables(leg_t, day_t, rf, FUT_UNITS)
     me1, me2, su1, su2 = (res[k] for k in ("month_end_zn", "month_end_zn_cost_2x", "supply_calendar",
@@ -1127,16 +1139,560 @@ def _build_futures_tables(cal, win, fut_months, fomc, rf, y10, ev, sup_entries, 
     step(f"futures: derived tables written ({len(leg_t)} leg rows, {len(day_t)} days)", t0)
 
 
-def main() -> None:
+# ------------------------------------------------------------------------------------------------ test window (Gate 2)
+
+OOS_JSON = report.OUTPUTS / "results_oos.json"
+OOS_LOG = REPO_ROOT / "runs" / "oos_run.log"
+OOS_FUT_TABLES = {"legs": "futures_legs_oos.csv", "daily": "futures_daily_oos.csv",
+                  "checks": "futures_data_checks_oos.json"}
+OOS_FUT_UNITS = {k: FUT_UNITS[k] for k in ("month_end_zn", "month_end_zn_cost_2x", "supply_calendar",
+                                           "supply_calendar_cost_2x")}
+PSEUDO_WINDOW = {"start": "2022-10-01", "end": IS_END, "split": "2022-09-30"}   # section 17, inside the in-sample
+PSEUDO_TOL = 1e-12
+
+
+def evaluate_window(start: str, end: str, *, git: dict, label: str = "oos", futures_src: dict | None = None) -> dict:
+    """Every pre-registered test and strategy on the window [start, end] (CLAUDE.md section 17) with the in-sample
+    code paths of insample(), month_end_phase5(), flowclock(), h8_block() and futures(); only the window changes, as
+    for the post-publication and post-LYZ sub-samples. The data loaders read whatever snapshot is active (src/data/
+    snapshot.py::reading_from: the --oos data view). Signals use all history from 1990 (past-only z); strategies
+    start flat on the window's first bond day (NAV 1, drawdown rule reset); the risk look-backs reach before it.
+
+    futures_src: None (futures skipped), {"raw": {"settle", "volume", "defs"}} (Databento long tables; the books are
+    built, written to derived tables in memory and recomputed from them, as the in-sample futures() does) or
+    {"tables": {"legs", "daily", "checks"}} (committed derived *_oos tables: the keyless path).
+
+    Prints nothing and writes nothing (section 17: nothing until every block is computed). Returns the blocks
+    {"month_end", "flowclock", "H8", "futures"} plus private keys: _daily (daily net excess per strategy key),
+    _rows (trial rows, not logged), _tables ({file name: (DataFrame, index) or text}), _fig (equity curves)."""
+    sample = [start, end]
+    cal = load_calendar(end=end)
+    rcfg = RebuildConfig()
+    monthly, _ = run_default(end=end, cfg=rcfg)
+    tenor = HEADLINE_TENOR
+    total, excess = tenor_returns(end=end)
+    x10 = excess[tenor]
+    rf = total[tenor] - excess[tenor]
+    y10 = load_frame([tenor, RF_SERIES], end=end, index=cal.days, fill=True)[tenor]
+    fomc = load_fomc_dates(end=end, scheduled_only=True)
+    months_frame = pd.DataFrame({"E": pd.to_datetime(monthly["E"].to_numpy())},
+                                index=pd.PeriodIndex(monthly["month"], freq="M"))
+    sig = build_signals(monthly, fomc, pension_pressure(months_frame, cal, load_pension_input(end=end), total[tenor]))
+    months = sig.index[(sig.index >= pd.Period(start, "M")) & (sig.index <= pd.Period(end, "M"))]
+    s = sig.loc[months]
+    if s["z"].isna().any():
+        raise RuntimeError("z_m undefined inside the window")
+    win = month_end_windows(cal, months, ENTRY_OFFSET, EXIT_OFFSET)
+    if not ((win["entry"] == s["E"]).all() and (win["T"] == s["T"]).all()):
+        raise RuntimeError("window dates differ from the rebuild's E and T")
+    R = window_returns(x10, win) * 100.0
+    Y = -window_yield_change_bp(y10, win)
+    days = cal.days[(cal.days >= pd.Timestamp(start)) & (cal.days <= pd.Timestamp(end))]
+    cfg1, cfg2 = RiskConfig(), RiskConfig(cost_mult=COST_STRESS)
+    me = dict(daily_excess=x10, rf=rf, y_tenor=y10, y10=y10, tenor_years=KNOT_YEARS[tenor], fomc_scheduled=fomc,
+              cal=cal, days=days)
+    ones = pd.Series(1.0, index=months)
+    strat = {"forecast_sized": run_strategy("forecast_sized", win, s["w"], cfg=cfg1, **me),
+             "calendar_only": run_strategy("calendar_only", win, ones, cfg=cfg1, **me)}
+    fc2 = run_strategy("forecast_sized_cost2x", win, s["w"], cfg=cfg2, **me)
+    cal2 = run_strategy("calendar_only_cost2x", win, ones, cfg=cfg2, **me)
+
+    # month-end leg: H1 (+ components, addendum), H4, placebo, luck test, H2, H3, H5, curve-allocated, costs 2x
+    res_h1 = h1(R, Y, s["z"])
+    res_h1["components"] = h1_components(R, Y, s["z_ext"], s["z_cash"])
+    res_h4 = h4(strat["forecast_sized"].daily["excess"], strat["calendar_only"].daily["excess"])
+    p_months = months[months + 1 <= pd.Period(end, "M")]
+    pwin = placebo_windows(cal, p_months, PLACEBO_BDAYS)
+    P = window_returns(x10, pwin) * 100.0
+    PY = -window_yield_change_bp(y10, pwin)
+    pstrat = {"forecast_sized": run_strategy("placebo_forecast_sized", pwin, s["w"], cfg=cfg1, **me),
+              "calendar_only": run_strategy("placebo_calendar_only", pwin, ones, cfg=cfg1, **me)}
+    luck = luck_test(luck_candidates(cal, months, x10), R)
+    luck_draws = luck.pop("draw_means_pct")
+    rwin = reversal_windows(cal, months, REVERSAL_DAYS)
+    yall = load_frame(list(TENORS.values()), end=end, index=cal.days, fill=True)
+    midx = pd.PeriodIndex(monthly["month"], freq="M")
+    fdd_b = pd.DataFrame({b: monthly[f"fdd_{b}"].to_numpy(float) for b in BUCKETS}, index=midx)
+    ext_b = pd.DataFrame({b: monthly[f"ext_{b}"].to_numpy(float) for b in BUCKETS}, index=midx)
+    neg_dy_b = pd.DataFrame({b: -(yall[TENORS[b]].reindex(win["exit"]).to_numpy()
+                                  - yall[TENORS[b]].reindex(win["entry"]).to_numpy()) * 100.0 for b in BUCKETS},
+                            index=months)
+    res_h2 = h2(neg_dy_b, fdd_b.apply(past_zscore).loc[months], ext_b.apply(past_zscore).loc[months])
+    curve_args = dict(demand=fdd_b.loc[months], tenor_of=TENORS, excess=excess, yields=yall, rf=rf, y10=y10,
+                      fomc_scheduled=fomc, cal=cal, days=days)
+    curve = run_curve_allocated("curve_allocated", win, cfg=cfg1, **curve_args)
+    curve2 = run_curve_allocated("curve_allocated_cost2x", win, cfg=cfg2, **curve_args)
+    excl = pd.DataFrame(curve.excluded)
+    h4_2 = h4(fc2.daily["excess"], cal2.daily["excess"])
+    metrics = {k: required_metrics(v) for k, v in strat.items()}
+    metrics["curve_allocated"] = required_metrics(curve)
+    month_end = {
+        "sample": [str(months[0]), str(months[-1])], "H1": res_h1,
+        "H1_addendum": h1_addendum(R, Y, s["z"], s["ref"], s["z_surprise"]), "H4": res_h4,
+        "H2": res_h2, "H3": h3(window_returns(x10, rwin) * 100.0, -window_yield_change_bp(y10, rwin), s["z"], R),
+        "H5": h5(R, Y, s),
+        "placebo": {"window": f"business days {PLACEBO_BDAYS[0]}-{PLACEBO_BDAYS[1]} of month m+1, paired with z_m",
+                    "H1": h1(P, PY, s["z"].loc[p_months]),
+                    "components": h1_components(P, PY, s["z_ext"].loc[p_months], s["z_cash"].loc[p_months]),
+                    "H4": h4(pstrat["forecast_sized"].daily["excess"], pstrat["calendar_only"].daily["excess"]),
+                    "metrics": {k: required_metrics(v) for k, v in pstrat.items()}},
+        "random_windows": luck,
+        "metrics": metrics,
+        "cost_stress": {"cost_mult": COST_STRESS, "H4": h4_2,
+                        "metrics": {"forecast_sized": required_metrics(fc2), "calendar_only": required_metrics(cal2)}},
+        "curve_allocated": {
+            "vs_calendar_only": h4(curve.daily["excess"], strat["calendar_only"].daily["excess"]),
+            "vs_calendar_only_cost_2x": h4(curve2.daily["excess"], cal2.daily["excess"]),
+            "metrics_cost_2x": required_metrics(curve2),
+            "n_months_flat": len(curve.flat_months), "flat_months": [str(m) for m in curve.flat_months],
+            "n_months_bucket_excluded": int(len(excl)),
+            "months_bucket_excluded_by_bucket": ({} if excl.empty else
+                                                 {b: int(excl["buckets"].map(lambda x, b=b: b in x).sum())
+                                                  for b in BUCKETS}),
+            "mean_weights": {b: float(curve.trades[f"a_{b}"].mean()) for b in BUCKETS},
+            "note": "DV01 = calendar-only DV01 split across buckets in proportion to max(fdd_b, 0) (src/backtest.py)"},
+    }
+    daily = {"forecast_sized": strat["forecast_sized"].daily["excess"],
+             "calendar_only": strat["calendar_only"].daily["excess"],
+             "forecast_sized_cost_2x": fc2.daily["excess"], "calendar_only_cost_2x": cal2.daily["excess"],
+             "curve_allocated": curve.daily["excess"], "curve_allocated_cost_2x": curve2.daily["excess"]}
+
+    # Flow Clock (flowclock(), one sample) and H8 (h8_block())
+    yld = load_frame(FC_TENORS, end=end, index=cal.days, fill=True)
+    ev = build_events(load_auctions(end=end, exclude=None), cal, yld)
+    _, xs = tenor_returns(end=end, tenors={t: t for t in FC_TENORS})
+    ev = ev.join(event_returns(ev, xs, yld))
+    mask = in_sample_mask(ev, start, end)
+    sa = month_end_supply(ev, cal, load_curve(end=end), pd.period_range(SA_START, end[:7], freq="M"))
+    sa["zA"] = past_zscore(sa["SA_bn_years"])
+    if sa.loc[months, "zA"].isna().any():
+        raise RuntimeError("zA_m undefined inside the window")
+    traded = ev["window_complete"] & ~ev["skipped"]
+    sup_entries = pd.DatetimeIndex(pd.concat([ev.loc[traded, "pre_entry"], ev.loc[traded, "A"]]))
+    bk = dict(excess=xs, yields=yld, rf=rf, fomc_scheduled=fomc, cal=cal, supply_entries=sup_entries)
+    me_nd = {k: v for k, v in me.items() if k != "days"}
+    e = ev[mask & ~ev["skipped"]]
+    dem = demand_legs(win, cal)
+    dem1 = strat["calendar_only"]
+    dem2 = run_strategy("calendar_only_cost2x", win, ones, days=days, cfg=cfg2, **me_nd)
+    check = run_book("demand_check", dem, days=days, cfg=cfg1, demand_per_year=WINDOWS_PER_YEAR, unit="month",
+                     **{**bk, "supply_entries": None})
+    gap = float((check.daily["excess"] - dem1.daily["excess"]).abs().max())
+    if gap > 1e-12:
+        raise RuntimeError(f"the book engine with the demand leg alone differs from calendar_only by {gap}")
+    r = {"supply_calendar": run_book("supply_calendar", supply_legs(e, False), days=days, cfg=cfg1, **bk),
+         "supply_size_weighted": run_book("supply_size_weighted", supply_legs(e, True), days=days, cfg=cfg1, **bk),
+         "book": run_book("flowclock_book", pd.concat([dem, supply_legs(e, False)], ignore_index=True), days=days,
+                          cfg=cfg1, demand_per_year=WINDOWS_PER_YEAR, unit="month", **bk),
+         "supply_calendar_cost_2x": run_book("supply_calendar_cost2x", supply_legs(e, False), days=days, cfg=cfg2,
+                                             **bk),
+         "book_cost_2x": run_book("flowclock_book_cost2x", pd.concat([dem, supply_legs(e, False)], ignore_index=True),
+                                  days=days, cfg=cfg2, demand_per_year=WINDOWS_PER_YEAR, unit="month", **bk)}
+    ex = {k: v.daily["excess"] for k, v in r.items()}
+    fc_metrics = {k: book_metrics(v) for k, v in r.items()}
+    fc_metrics["demand_alone"] = required_metrics(dem1)
+    fc_metrics["demand_alone_cost_2x"] = required_metrics(dem2)
+    flow = {"sample": [str(days[0].date()), str(days[-1].date())], "H6": h6(ev[mask]),
+            "H7": h7(R, Y, sa.loc[months, "zA"]),
+            "headline3": {"cost_1x": compare_sharpe(ex["book"], dem1.daily["excess"], "book", "demand"),
+                          "cost_2x": compare_sharpe(ex["book_cost_2x"], dem2.daily["excess"], "book", "demand")},
+            "supply_size_vs_calendar": compare_sharpe(ex["supply_size_weighted"], ex["supply_calendar"],
+                                                      "size_weighted", "calendar"),
+            "corr_daily_supply_vs_demand": float(ex["supply_calendar"].corr(dem1.daily["excess"])),
+            "metrics": fc_metrics, "demand_engine_check_max_abs_diff": gap,
+            "n_events": int(mask.sum()), "n_events_traded": int(len(e))}
+    daily.update({"flowclock_book": ex["book"], "flowclock_book_cost_2x": ex["book_cost_2x"],
+                  "supply_calendar": ex["supply_calendar"], "supply_calendar_cost_2x": ex["supply_calendar_cost_2x"],
+                  "supply_size_weighted": ex["supply_size_weighted"]})
+    e8 = ev[mask]
+    zd = dealers.zd_at(pd.DatetimeIndex(sorted(e8["pre_entry"].dropna().unique())),
+                       pd_positions.load_positions(end=end), cal)
+    h8r = dealers.h8(e8, zd)
+
+    # futures (futures() and _build_futures_tables(), month-end ZN and supply leg, 1x and 2x)
+    fut_out, fut_tables, fut_fig = {"status": "skipped: no Databento data or derived *_oos tables"}, {}, {}
+    if futures_src is not None:
+        import io
+        import json
+        if "raw" in futures_src:
+            import yaml
+            raw = futures_src["raw"]
+            pv = dbf.point_values(raw["defs"])
+            specs = yaml.safe_load((Path(__file__).resolve().parent / "config" / "contract_specs.yaml").read_text())
+            bad = {k: (pv.get(k), float(v["point_value_usd"])) for k, v in specs.items()
+                   if pv.get(k) != v["point_value_usd"]}
+            if bad:
+                raise RuntimeError(f"point values in the definitions differ from config/contract_specs.yaml: {bad}")
+            mkt = fut.build_market(raw["settle"], raw["volume"], raw["defs"], cal, pv)
+            first = json.loads((report.OUTPUTS / "tables" / FUT_TABLES["checks"]).read_text(encoding="utf-8"))[
+                "first_sizable_entry"]
+            me_legs = fut.month_end_legs(dem)
+            su_legs = fut.supply_legs_futures(supply_legs(e, False))
+            me_prep = fut.prepare_legs(me_legs, mkt, yld, first_ok_given=first["month_end"])
+            su_prep = fut.prepare_legs(su_legs, mkt, yld, first_ok_given=first["supply"])
+            fa = dict(m=mkt, yields=yld, rf=rf, fomc_scheduled=fomc, cal=cal, days=days)
+            books = {}
+            for sfx, cfg in (("", cfg1), ("_cost_2x", cfg2)):
+                books["month_end_zn" + sfx] = fut.run_futures_book("month_end_zn" + sfx, me_legs, me_prep, cfg=cfg,
+                                                                   demand_per_year=WINDOWS_PER_YEAR, unit="month",
+                                                                   **fa)
+                books["supply_calendar" + sfx] = fut.run_futures_book("supply_calendar" + sfx, su_legs, su_prep,
+                                                                      cfg=cfg, supply_entries=sup_entries, **fa)
+            leg_t, day_t = fut.to_tables(books)
+            legs_csv = leg_t.to_csv(index=False, lineterminator="\n")
+            daily_csv = day_t.to_csv(lineterminator="\n")
+            checks = {"source": "Databento GLBX.MDP3: statistics (settlement), ohlcv-1d (volume), definition "
+                                "(monthly snapshots); rows through the split from the in-sample cache",
+                      "trade_dates": [str(raw["settle"]["trade_date"].min().date()),
+                                      str(raw["settle"]["trade_date"].max().date())],
+                      "n_definition_snapshots": int(raw["defs"]["snapshot"].nunique()),
+                      "first_sizable_entry_used": first,
+                      "first_sizable_entry_found_on_window_legs": {
+                          "month_end": me_prep.attrs["first_sizable_entry"],
+                          "supply": su_prep.attrs["first_sizable_entry"]},
+                      "bond_days_without_any_settlement": fut.settlement_gaps(mkt, days)}
+            checks_txt = json.dumps(report.clean(checks), indent=2) + "\n"
+        else:
+            tb = futures_src["tables"]
+            legs_csv, daily_csv = (Path(tb[k]).read_text(encoding="utf-8") for k in ("legs", "daily"))
+            checks_txt = Path(tb["checks"]).read_text(encoding="utf-8")
+        leg_t, day_t = read_fut_tables(io.StringIO(legs_csv), io.StringIO(daily_csv))
+        fres = fut.from_tables(leg_t, day_t, rf, OOS_FUT_UNITS)
+        me1, me2, su1, su2 = (fres[k] for k in OOS_FUT_UNITS)
+        m_me = {k: fut.month_end_metrics(fres[k]) for k in ("month_end_zn", "month_end_zn_cost_2x")}
+        m_su = {k: fut.book_metrics_futures(fres[k]) for k in ("supply_calendar", "supply_calendar_cost_2x")}
+        fdays = me1.daily.index
+        fut_out = {"sample": [str(fdays[0].date()), str(fdays[-1].date())],
+                   "contracts": {"month_end": HEADLINE_FUTURE, "supply": dict(fus.SUPPLY_CONTRACT),
+                                 "fallback": dict(fus.FALLBACK)},
+                   "data": json.loads(checks_txt),
+                   "month_end_zn": {"metrics": m_me["month_end_zn"], "metrics_cost_2x": m_me["month_end_zn_cost_2x"],
+                                    "legs": fut.leg_summary(me1), "legs_cost_2x": fut.leg_summary(me2)},
+                   "supply_calendar": {"metrics": m_su["supply_calendar"],
+                                       "metrics_cost_2x": m_su["supply_calendar_cost_2x"],
+                                       "legs": fut.leg_summary(su1), "legs_cost_2x": fut.leg_summary(su2)},
+                   "tables": {k: f"outputs/tables/{v}" for k, v in OOS_FUT_TABLES.items()}}
+        fut_tables = {OOS_FUT_TABLES["legs"]: legs_csv, OOS_FUT_TABLES["daily"]: daily_csv,
+                      OOS_FUT_TABLES["checks"]: checks_txt}
+        for k, b in fres.items():
+            daily[f"futures_{k}"] = b.daily["excess"]
+        fut_fig = {"fut_navs": {f"calendar-only, {HEADLINE_FUTURE} futures": (1.0 + me1.daily["excess"]).cumprod(),
+                                "supply leg, futures": (1.0 + su1.daily["excess"]).cumprod()},
+                   "fut_sharpes": {f"calendar-only, {HEADLINE_FUTURE} futures": m_me["month_end_zn"]["sharpe"],
+                                   "supply leg, futures": m_su["supply_calendar"]["sharpe"]}}
+
+    # trial rows (section 17: 14 rows, windows oos_*), logged by the caller once every block is computed
+    base_cfg = {"settings": report.settings_dict(), "rebuild": config_dict(rcfg), "risk": asdict(cfg1),
+                "tenor": tenor, "strategy": "cash", "sample": sample}
+    pl = month_end["placebo"]
+    rows = [
+        trial_row({**base_cfg, "window": {"entry": -ENTRY_OFFSET, "exit": EXIT_OFFSET}}, label, {
+            "strategy": "cash", "tenor": tenor, "entry": f"T-{ENTRY_OFFSET}", "exit": f"T+{EXIT_OFFSET}",
+            "n": res_h1["n"], "H1_b": res_h1["b"], "H1_lo": res_h1["ci"][0], "H1_hi": res_h1["ci"][1],
+            "sharpe_fc": res_h4["sharpe_fc"], "sharpe_cal": res_h4["sharpe_cal"],
+            "note": f"run_all --oos: test window {start} to {end}, pre-registered headline (cash, net of costs)"},
+            git=git),
+        trial_row({**base_cfg, "window": {"placebo_bdays": list(PLACEBO_BDAYS)}}, f"{label}_placebo", {
+            "strategy": "cash", "tenor": tenor, "entry": f"bday{PLACEBO_BDAYS[0] - 1}(m+1)",
+            "exit": f"bday{PLACEBO_BDAYS[1]}(m+1)", "n": pl["H1"]["n"], "H1_b": pl["H1"]["b"],
+            "H1_lo": pl["H1"]["ci"][0], "H1_hi": pl["H1"]["ci"][1], "sharpe_fc": pl["H4"]["sharpe_fc"],
+            "sharpe_cal": pl["H4"]["sharpe_cal"], "note": "run_all --oos: placebo control, test window"}, git=git),
+        _row(base_cfg, git, f"{label}_cost2x", {"risk": asdict(cfg2)}, res_h1["n"], res_h1, h4_2["sharpe_fc"],
+             h4_2["sharpe_cal"], "run_all --oos: costs 2x, test window; sharpe_fc = forecast-sized, sharpe_cal = "
+             "calendar-only; H1_* = H1"),
+    ]
+    ca = month_end["curve_allocated"]
+    for suffix, cfg_ca, cmp_key in (("", {}, "vs_calendar_only"), ("_cost2x", {"risk": asdict(cfg2)},
+                                                                   "vs_calendar_only_cost_2x")):
+        rows.append(_row(base_cfg, git, f"{label}_curve_allocated{suffix}", {"strategy": "curve_allocated", **cfg_ca},
+                         res_h2["n_obs"], {"b": res_h2["coef"], "ci": res_h2["ci"]}, ca[cmp_key]["sharpe_fc"],
+                         ca[cmp_key]["sharpe_cal"], f"run_all --oos: curve-allocated{suffix}, test window; sharpe_fc "
+                         "= curve-allocated, sharpe_cal = calendar-only; H1_* = H2 coef; n = bucket-months",
+                         tenor="DGS2-DGS30"))
+    fc_cfg = {"settings": report.settings_dict(), "flowclock": {k: getattr(fcs, k) for k in dir(fcs) if k.isupper()},
+              "risk": asdict(cfg1)}
+    for cost_key, cm in (("cost_1x", 1.0), ("cost_2x", COST_STRESS)):
+        wl = f"{label}_flowclock" + ("" if cm == 1.0 else "_cost2x")
+        hh = flow["headline3"][cost_key]
+        rows.append(trial_row({**fc_cfg, "strategy": "flowclock_book", "cost_mult": cm, "sample": label}, wl, {
+            "strategy": "flowclock_book", "tenor": "DGS10+DGS2-DGS30", "entry": "T-4|A-5,A", "exit": "T|A,A+5",
+            "n": flow["H6"]["n_used"], "H1_b": flow["H7"]["c"]["b"], "H1_lo": flow["H7"]["c"]["ci"][0],
+            "H1_hi": flow["H7"]["c"]["ci"][1], "sharpe_fc": hh["sharpe_book"], "sharpe_cal": hh["sharpe_demand"],
+            "note": f"run_all --oos: Flow Clock Headline 3, test window, {cm:g}x costs; sharpe_fc = book, "
+                    f"sharpe_cal = demand leg alone; H1_* = H7 c"}, git=git))
+        if cm == 1.0:
+            sv = flow["supply_size_vs_calendar"]
+            s_fc, s_cal, note = sv["sharpe_size_weighted"], sv["sharpe_calendar"], \
+                "sharpe_fc = size-weighted supply leg, sharpe_cal = calendar supply leg"
+        else:
+            s_fc, s_cal, note = "", fc_metrics["supply_calendar_cost_2x"]["sharpe"], \
+                "sharpe_cal = calendar supply leg (the size-weighted leg is not stress-tested)"
+        h6c = flow["H6"]["H6c"]
+        rows.append(trial_row({**fc_cfg, "strategy": "supply_leg", "cost_mult": cm, "sample": label}, wl, {
+            "strategy": "supply_leg", "tenor": "DGS2-DGS30", "entry": "A-5,A", "exit": "A,A+5",
+            "n": flow["H6"]["n_used"], "H1_b": h6c["b"], "H1_lo": h6c["ci"][0], "H1_hi": h6c["ci"][1],
+            "sharpe_fc": s_fc, "sharpe_cal": s_cal,
+            "note": f"run_all --oos: Flow Clock supply leg, test window, {cm:g}x costs; {note}; H1_* = H6c beta"},
+            git=git))
+    rows.append(trial_row({**fc_cfg, "test": "H8", "dealers": {k: getattr(dcs, k) for k in dir(dcs) if k.isupper()},
+                           "series": pd_positions.COUPON_KEYS, "sample": label}, f"{label}_h8", {
+        "strategy": "h8_dealers", "tenor": "DGS2-DGS30", "entry": "A-5", "exit": "A+5", "n": h8r["n"],
+        "H1_b": h8r["c"]["b"], "H1_lo": h8r["c"]["ci"][0], "H1_hi": h8r["c"]["ci"][1], "sharpe_fc": "",
+        "sharpe_cal": "", "note": "run_all --oos: H8 (PREREG_DEALERS.md), test window; H1_* = c and its 95% CI; "
+                                  "explanation test, not a strategy (Sharpe columns blank)"}, git=git))
+    if "metrics" in fut_out.get("month_end_zn", {}):
+        fu_cfg = {"settings": report.settings_dict(), "futures": {k: getattr(fus, k) for k in dir(fus) if k.isupper()},
+                  "flowclock": {k: getattr(fcs, k) for k in dir(fcs) if k.isupper()}, "sample": label}
+        for key, strat_name, tnr, entry, exit_, unit_n, mk in (
+                ("month_end_zn", "futures_calendar_only", f"{HEADLINE_FUTURE} (DGS10)", f"T-{ENTRY_OFFSET}",
+                 f"T+{EXIT_OFFSET}", "n_windows", m_me),
+                ("supply_calendar", "futures_supply_leg", "ZT-UB by auction tenor", "A-5,A", "A,A+5", "n_units",
+                 m_su)):
+            for suffix, cm in (("", 1.0), ("_cost_2x", COST_STRESS)):
+                mt = mk[key + suffix]
+                rows.append(trial_row({**fu_cfg, "strategy": strat_name, "risk": asdict(RiskConfig(cost_mult=cm))},
+                                      f"{label}_futures" + ("" if cm == 1.0 else "_cost2x"), {
+                    "strategy": strat_name, "tenor": tnr, "entry": entry, "exit": exit_, "n": mt[unit_n],
+                    "H1_b": "", "H1_lo": "", "H1_hi": "", "sharpe_fc": "", "sharpe_cal": mt["sharpe"],
+                    "note": f"run_all --oos: futures {strat_name}, test window, {cm:g}x costs; sharpe_cal = this "
+                            f"calendar strategy's net Sharpe; no slope (H1_* blank)"}, git=git))
+
+    # tables (written by the caller) and figure inputs
+    terc = tercile_labels(s["z"])
+    tables = {
+        "windows_oos.csv": (pd.DataFrame({"T": win["T"].dt.date, "E": win["entry"].dt.date, "FDD": s["FDD"],
+                                          "z": s["z"], "z_ext": s["z_ext"], "z_cash": s["z_cash"], "w": s["w"],
+                                          "tercile": terc, "ref": s["ref"], "fomc_scheduled_in_window": s["fomc"],
+                                          "R_pct": R, "neg_dy_bp": Y}).rename_axis("month"), True),
+        "placebo_windows_oos.csv": (pd.DataFrame({"window_month": pwin["window_month"], "entry": pwin["entry"].dt.date,
+                                                  "exit": pwin["exit"].dt.date, "z_m": s["z"].loc[p_months],
+                                                  "P_pct": P, "neg_dy_bp": PY}).rename_axis("signal_month"), True),
+        "luck_test_draws_oos.csv": (pd.DataFrame({"draw_mean_pct": luck_draws}), False),
+        "equity_curve_cash_oos.csv": (equity_curves({**strat, "curve_allocated": curve}), True),
+        "trades_cash_curve_allocated_oos.csv": (curve.trades.rename_axis("month"), True),
+    }
+    for k, v in strat.items():
+        tables[f"trades_cash_{k}_oos.csv"] = (v.trades.rename_axis("month"), True)
+    eq = {}
+    for k in ("book", "supply_calendar", "supply_size_weighted"):
+        eq[f"nav_excess_{k}"] = (1.0 + r[k].daily["excess"]).cumprod()
+        lg = r[k].legs.copy()
+        lg["entry"], lg["exit"] = lg["entry"].dt.date, lg["exit"].dt.date
+        tables[f"flowclock_legs_{k}_oos.csv"] = (lg.set_index("leg_id"), True)
+    eq["nav_excess_demand_alone"] = (1.0 + dem1.daily["excess"]).cumprod()
+    tables["equity_curve_flowclock_oos.csv"] = (pd.DataFrame(eq).rename_axis("date"), True)
+    evt = ev[mask].copy()
+    for c in ["A", "announced", "pre_entry", "post_exit"]:
+        evt[c] = evt[c].dt.date
+    tables["auction_events_oos.csv"] = (evt.set_index("event_id"), True)
+    tables.update(fut_tables)
+    navs = {"forecast-sized": (1.0 + daily["forecast_sized"]).cumprod(),
+            "calendar-only": (1.0 + daily["calendar_only"]).cumprod(),
+            "Flow Clock book": (1.0 + daily["flowclock_book"]).cumprod(),
+            "curve-allocated": (1.0 + daily["curve_allocated"]).cumprod()}
+    shp = {"forecast-sized": metrics["forecast_sized"]["sharpe"], "calendar-only": metrics["calendar_only"]["sharpe"],
+           "Flow Clock book": fc_metrics["book"]["sharpe"], "curve-allocated": metrics["curve_allocated"]["sharpe"]}
+    return {"month_end": month_end, "flowclock": flow, "H8": h8r, "futures": fut_out, "_daily": daily,
+            "_rows": rows, "_tables": tables, "_fig": {"navs": navs, "sharpes": shp, **fut_fig}}
+
+
+def merge_oos(res: dict, oos: dict) -> None:
+    """results.json gets the Gate 2 blocks of outputs/results_oos.json (CLAUDE.md section 17): oos (month-end leg and
+    the label table), flowclock.oos, H8.oos and futures.oos. In place."""
+    res["oos"] = oos["oos"]
+    res.setdefault("flowclock", {})["oos"] = oos["flowclock"]
+    res.setdefault("H8", {})["oos"] = oos["H8"]
+    if isinstance(res.get("futures"), dict):
+        res["futures"]["oos"] = oos["futures"]
+    res.setdefault("figures", {})["equity_curve_oos"] = oos["figure"]
+    res["meta"]["pending"] = [p for p in res["meta"].get("pending", []) if not p.startswith("oos,")]
+    res["meta"]["oos"] = oos["meta"]
+
+
+def oos_package(blocks: dict, ins: dict, meta: dict, fig: dict) -> dict:
+    """outputs/results_oos.json from evaluate_window's blocks: labels and kill conditions (src/oos_eval.py)."""
+    clean_blocks = report.clean({k: blocks[k] for k in ("month_end", "flowclock", "H8", "futures")})
+    lab = oos_eval.labels(clean_blocks, ins, blocks["_daily"])
+    return report.clean({"meta": meta, "oos": {**clean_blocks["month_end"], "labels": lab},
+                         "flowclock": clean_blocks["flowclock"], "H8": clean_blocks["H8"],
+                         "futures": clean_blocks["futures"], "figure": fig})
+
+
+def oos_log_lines() -> list[str]:
+    return OOS_LOG.read_text(encoding="utf-8").splitlines() if OOS_LOG.exists() else []
+
+
+def oos_log(line: str) -> None:
+    OOS_LOG.parent.mkdir(parents=True, exist_ok=True)
+    with OOS_LOG.open("a", encoding="utf-8") as f:
+        f.write(f"{utc_now()} {line}\n")
+
+
+def oos_futures_source(split: str, end: str, reproduce: bool) -> dict | None:
+    """Where the futures block comes from (evaluate_window's futures_src): the committed derived *_oos tables
+    (keyless), else the Databento in-sample cache through the split plus the test-window pull."""
+    tabs = {k: report.OUTPUTS / "tables" / v for k, v in OOS_FUT_TABLES.items()}
+    if reproduce and all(p.exists() for p in tabs.values()):
+        return {"tables": tabs}
+    if dbf.have_cache() and dbf.have_oos_cache():
+        st, vo = dbf.load_window(split, end)
+        return {"raw": {"settle": st, "volume": vo, "defs": dbf.load_definition_snapshots((dbf.DEF_DIR,
+                                                                                            dbf.OOS_DEF_DIR))}}
+    return None
+
+
+def run_oos(databento_ok: bool = False, force_rerun: bool = False) -> None:
+    """`python run_all.py --oos` (CLAUDE.md section 17). Two paths:
+    * first run (no committed data/oos/): HEAD tagged gate2-frozen and a clean tree in every mode
+      (trial_log.assert_gate2_download), public test-window download staged in data/cache/oos/, then the Databento
+      estimate (the pull needs --databento-ok). Logged in runs/oos_run.log; a second run needs --force-rerun.
+    * keyless reproduction (data/oos/ committed and matching its checksums): no download, no key; the futures block
+      from the committed derived *_oos tables. Without GQH_DEV it is not a run (judges' reproduction): runs/ is not
+      touched. With GQH_DEV=1 it counts as a rerun (--force-rerun, a FORCED RERUN line, 14 trial rows).
+    Nothing is printed or written until every block is computed."""
+    import json
+    t0 = time.time()
+    git = git_state()
+    verify_or_exit()
+    assert_gate1()
+    reproduce = oos_data.committed_ok()
+    counted = (not reproduce) or dev_mode()
+    started = [ln for ln in oos_log_lines() if " RUN START " in ln or " FORCED RERUN " in ln]
+    if counted and started and not force_rerun:
+        sys.exit(f"--oos: the test window already ran (runs/{OOS_LOG.name}: {started[0]}). It runs "
+                 f"once; a second run needs --force-rerun and is disclosed (CLAUDE.md section 17).")
+    if reproduce:
+        new_dir = oos_data.OOS_DATA_DIR
+        step("--oos: keyless reproduction from the committed data/oos/ (no download)", t0)
+    else:
+        if not dev_mode():
+            print("--oos: GQH_DEV is not 1, so the 14 trial rows of this run will not be written to runs/trials.csv "
+                  "(rule 7; src/trial_log.py). The team runs it with GQH_DEV=1.", flush=True)
+        try:
+            assert_gate2_download()
+        except GateError as e:
+            sys.exit(f"--oos: {e} Nothing downloaded or computed. The test window runs once, after the team tags "
+                     f"{GATE2_TAG} (CLAUDE.md section 17).")
+        if not oos_data.staged():
+            step("--oos: Gate 2 guard passed; downloading the public test-window rows into data/cache/oos/", t0)
+            entries = oos_data.download(dest=oos_data.STAGE_DIR, split=IS_END, end=OOS_END)
+            step(f"--oos: public download complete ({', '.join(sorted(entries))})", t0)
+        new_dir = oos_data.STAGE_DIR
+        try:
+            dbf.download_oos(approved=databento_ok)
+        except dbf.NeedApproval as e:
+            sys.exit(f"--oos: {e} No return computed: not a run (CLAUDE.md section 17).")
+        except dbf.NoDatabento as e:
+            sys.exit(f"--oos: {e} The futures block needs the test-window Databento pull; no return computed: not a "
+                     f"run.")
+    fsrc = oos_futures_source(IS_END, OOS_END, reproduce)
+    if fsrc is None and not reproduce:
+        sys.exit("--oos: the futures block needs the in-sample Databento cache (data/cache/databento/) and the "
+                 "test-window pull; no return computed: not a run.")
+    if counted:
+        oos_log(("FORCED RERUN " if started else "RUN START ") + f"commit {git['commit']} dirty={git['dirty']} "
+                f"mode={'reproduce' if reproduce else 'download'}")
+    oos_data.build_view(new_dir, split=IS_END, end=OOS_END, view_dir=oos_data.VIEW_DIR)
+    step("--oos: computing every block (nothing is printed or written until all are done)", t0)
+    with reading_from(oos_data.VIEW_DIR):
+        blocks = evaluate_window(OOS_START, OOS_END, git=git, futures_src=fsrc)
+    ins = json.loads(report.RESULTS_JSON.read_text(encoding="utf-8"))
+    vintage = json.loads((new_dir / oos_data.VINTAGE_NAME).read_text(encoding="utf-8"))
+    meta = {"ran_utc": utc_now(), "commit": git["commit"], "dirty": git["dirty"], "window": [OOS_START, OOS_END],
+            "split": IS_END, "mode": "download", "data": "data/oos/ (rows dated (IS_END, OOS_END]; vintage.json) + "
+            "data/snapshot/ rows through IS_END", "vintage": vintage,
+            "futures": "skipped" if fsrc is None else next(iter(fsrc)),
+            "rules": "CLAUDE.md section 17; labels and kill conditions: src/oos_eval.py"}
+    if reproduce and OOS_JSON.exists():     # keep the Gate 2 run's record; note the reproduction beside it
+        meta = {**json.loads(OOS_JSON.read_text(encoding="utf-8"))["meta"], "reproduced_utc": meta["ran_utc"],
+                "reproduced_commit": git["commit"], "reproduced_futures_from": meta["futures"]}
+    sample = f"{OOS_START[:7]} to {OOS_END[:7]}"
+    fig = blocks["_fig"]
+    FIG_DIR.mkdir(parents=True, exist_ok=True)
+    cap = figures.equity_curve_oos(fig["navs"], fig["sharpes"], FIG_DIR / "equity_curve_oos.png", sample,
+                                   fig.get("fut_navs"), fig.get("fut_sharpes"))
+    out = oos_package(blocks, ins, meta, {"path": "outputs/figures/equity_curve_oos.png", "caption": cap})
+    n_written = log_trials(blocks["_rows"]) if counted else 0
+    for name, tab in blocks["_tables"].items():
+        if isinstance(tab, str):
+            (report.OUTPUTS / "tables" / name).write_text(tab, encoding="utf-8")
+        else:
+            report.write_table(tab[0], name, index=tab[1])
+    OOS_JSON.parent.mkdir(parents=True, exist_ok=True)
+    OOS_JSON.write_text(json.dumps(out, indent=2) + "\n", encoding="utf-8")
+    if not reproduce:
+        oos_data.commit_copy(oos_data.STAGE_DIR, oos_data.OOS_DATA_DIR)
+    merge_oos(ins, out)
+    ins["trials"]["count"] = trial_count()
+    report.write_results(ins, report.RESULTS_JSON)
+    if counted:
+        oos_log(f"RUN COMPLETE commit {git['commit']} trial_rows_written={n_written}")
+    step(f"--oos done: outputs/results_oos.json, merged into outputs/results.json (oos, flowclock.oos, H8.oos, "
+         f"futures.oos); {len(blocks['_rows'])} trial rows ({n_written} written to runs/trials.csv)", t0)
+    lab = out["oos"]["labels"]["headline"]
+    for k in ("H1", "H4", "H8"):
+        print(f"  {k}: {lab[k]['label']} (estimate {lab[k]['estimate']})", flush=True)
+
+
+def run_oos_pseudo() -> int:
+    """`python run_all.py --oos-pseudo` (CLAUDE.md section 17, test only): evaluate_window on 2022-10-01..2024-09-30
+    through a data view that splits the committed snapshot at 2022-09-30 as if the later rows were downloaded, vs
+    src/oos_check.reference_window (the engines run directly on the snapshot). Writes nothing to the repo (the view
+    lives in a temporary directory) and logs no trial. Futures included when the in-sample Databento cache is
+    present. Returns the number of series or statistics that differ by more than PSEUDO_TOL."""
+    import tempfile
+
+    from src import oos_check
+    t0 = time.time()
+    verify_or_exit()
+    assert_gate1()
+    start, end, split = PSEUDO_WINDOW["start"], PSEUDO_WINDOW["end"], PSEUDO_WINDOW["split"]
+    with_fut = dbf.have_cache()
+    with tempfile.TemporaryDirectory(prefix="oos_pseudo_") as tmp:
+        new_dir, view_dir = Path(tmp) / "new", Path(tmp) / "view"
+        new_dir.mkdir()
+        for name, col in oos_data.DATE_COL.items():       # the "download": snapshot rows dated in (split, end]
+            oos_data.write_csv(oos_data.rows_between(oos_data.read_str(oos_data.SNAPSHOT_DIR / name), col, split,
+                                                     end), name, new_dir)
+        oos_data.build_view(new_dir, split=split, end=end, view_dir=view_dir)
+        fsrc = None
+        if with_fut:
+            st, vo = dbf.load_window(split, end, new_paths={s: dbf.raw_path(s) for s in dbf.BULK_SCHEMAS})
+            fsrc = {"raw": {"settle": st, "volume": vo, "defs": dbf.load_definition_snapshots()}}
+        with reading_from(view_dir):
+            out = evaluate_window(start, end, git=git_state(), label="pseudo", futures_src=fsrc)
+    step(f"--oos-pseudo: evaluate_window {start}..{end} (split {split}) done; reference engines next", t0)
+    ref = oos_check.reference_window(start, end, with_fut)
+    diffs = oos_check.compare(out, ref)
+    bad = {k: v for k, v in diffs.items() if not v <= PSEUDO_TOL}
+    for k, v in diffs.items():
+        print(f"  {k:<40s} max abs diff {v:.3g}", flush=True)
+    step(f"--oos-pseudo: {len(diffs)} series and statistics compared (futures {'in' if with_fut else 'skipped'}); "
+         f"{len(bad)} differ by more than {PSEUDO_TOL:g}; nothing written, no trial logged", t0)
+    return len(bad)
+
+
+def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--insample", action="store_true", help="in-sample (default)")
     p.add_argument("--futures", action="store_true", help="rebuild the derived futures tables from the Databento cache "
                    "(pulled with DATABENTO_API_KEY if missing); without it they are read from outputs/tables/")
-    p.add_argument("--oos", action="store_true", help="test window, once, at Gate 2 only")
+    p.add_argument("--oos", action="store_true", help="test window, once, at Gate 2 only (CLAUDE.md section 17)")
+    p.add_argument("--databento-ok", action="store_true", help="with --oos: pull the test-window Databento data "
+                   "after the team approved the printed estimate")
+    p.add_argument("--force-rerun", action="store_true", help="with --oos: run the test window again (disclosed in "
+                   "runs/oos_run.log)")
+    p.add_argument("--oos-pseudo", action="store_true", help="check the --oos path on an in-sample pseudo-window "
+                   "(writes nothing, logs no trial)")
     p.add_argument("--refresh", action="store_true", help="refresh the public-data snapshot first")
-    a = p.parse_args()
+    a = p.parse_args(argv)
+    if (a.databento_ok or a.force_rerun) and not a.oos:
+        sys.exit("--databento-ok and --force-rerun go with --oos.")
+    if a.oos_pseudo:
+        sys.exit(1 if run_oos_pseudo() else 0)
     if a.oos:
-        sys.exit("--oos is not built yet: the test window runs once, at Gate 2 (Phase 7), on a gate2-frozen HEAD.")
+        run_oos(databento_ok=a.databento_ok, force_rerun=a.force_rerun)
+        return
     if a.refresh:
         sys.exit("Refresh the snapshot with `python scripts/download_all.py`, review and commit it, then rerun.")
     insample(futures_mode="rebuild" if a.futures else "tables")

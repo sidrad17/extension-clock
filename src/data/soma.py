@@ -39,7 +39,7 @@ import pandas as pd
 import requests
 
 from config.settings import IS_END
-from src.data.snapshot import SNAPSHOT_DIR
+from src.data.snapshot import active_dir
 
 API = "https://markets.newyorkfed.org/api/soma"
 ASOF_LIST_URL = f"{API}/asofdates/list.json"
@@ -145,8 +145,9 @@ class SomaHoldings:
         return self.par.xs(d, level=0)
 
 
-def load_soma(end: str | None = IS_END, snapshot_dir: Path = SNAPSHOT_DIR) -> SomaHoldings:
-    """Snapshot holdings and as-of dates with asOfDate <= end."""
+def load_soma(end: str | None = IS_END, snapshot_dir: Path | None = None) -> SomaHoldings:
+    """Snapshot holdings and as-of dates with asOfDate <= end (snapshot_dir: active_dir() unless given)."""
+    snapshot_dir = snapshot_dir or active_dir()
     raw = pd.read_csv(snapshot_dir / SNAPSHOT_NAME, dtype=str, keep_default_na=False)
     asof = pd.DatetimeIndex(pd.to_datetime(
         pd.read_csv(snapshot_dir / ASOF_NAME, dtype=str)["asOfDate"], format="%Y-%m-%d"))
@@ -162,9 +163,9 @@ def load_soma(end: str | None = IS_END, snapshot_dir: Path = SNAPSHOT_DIR) -> So
     return SomaHoldings(asof, par.sort_index())
 
 
-def outstanding_implied(snapshot_dir: Path = SNAPSHOT_DIR, end: str | None = IS_END) -> pd.DataFrame:
+def outstanding_implied(snapshot_dir: Path | None = None, end: str | None = IS_END) -> pd.DataFrame:
     """parValue / percentOutstanding per (date, CUSIP): the amount outstanding the Fed's file implies (validation)."""
-    raw = pd.read_csv(snapshot_dir / SNAPSHOT_NAME, dtype=str, keep_default_na=False)
+    raw = pd.read_csv((snapshot_dir or active_dir()) / SNAPSHOT_NAME, dtype=str, keep_default_na=False)
     raw["asOfDate"] = pd.to_datetime(raw["asOfDate"], format="%Y-%m-%d")
     if end is not None:
         raw = raw[raw["asOfDate"] <= pd.Timestamp(end)]

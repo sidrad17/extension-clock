@@ -26,7 +26,7 @@ import pandas as pd
 import requests
 
 from config.settings import EXCLUDE, IS_END
-from src.data.snapshot import SNAPSHOT_DIR
+from src.data.snapshot import active_dir
 
 AUCTIONS_URL = "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/od/auctions_query"
 SNAPSHOT_NAME = "auctions.csv"
@@ -132,7 +132,7 @@ def load_auctions(end: str | None = IS_END, deduct_soma: bool = True, exclude: d
     Adds `public_amount` (see public_amount()). It is a RESULT of the auction: point-in-time code must use
     offering_amt for any tranche auctioned after the entry day (CLAUDE.md rule 3 and section 11).
     """
-    path = path or SNAPSHOT_DIR / SNAPSHOT_NAME
+    path = path or active_dir() / SNAPSHOT_NAME
     raw = pd.read_csv(path, dtype=str, keep_default_na=False)
     df = clean_auctions(raw)
     if end is not None:
