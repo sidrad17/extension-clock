@@ -75,8 +75,8 @@ from src.signals import build_signals, past_zscore, pension_pressure  # noqa: E4
 from src.stats import deflated_sharpe  # noqa: E402
 from src.tests_h import (event_path_summary, event_paths, h1, h1_addendum, h1_components, h2, h2_panel,  # noqa: E402
                          h3, h4, h5, luck_candidates, luck_test, tercile_labels)
-from src.trial_log import (assert_flowclock_prereg, assert_gate1, git_state, log_trial, log_trials,  # noqa: E402
-                           read_trials, trial_count, trial_counts, trial_row)
+from src.trial_log import (assert_flowclock_prereg, assert_gate1, dev_mode, git_state, log_trial,  # noqa: E402
+                           log_trials, read_trials, trial_count, trial_counts, trial_row)
 
 VERSION = "v6 (H8: in-sample; cash and futures; month-end leg, Flow Clock, CMT switch diagnostic, H8 dealer test)"
 PENDING = ["oos, flowclock.oos and H8.oos (Gate 2 only)",
@@ -97,6 +97,11 @@ GRID_CHECK_CELL = (2, 1, "DGS5")      # off-headline cell checked against run_st
 
 def step(msg: str, t0: float) -> None:
     print(f"[{time.time() - t0:6.1f}s] {msg}", flush=True)
+
+
+def written(n: int) -> str:
+    """Console text for n trial rows built by log_trial: they reach runs/trials.csv only with GQH_DEV=1."""
+    return f"{n} trial row{'' if n == 1 else 's'} ({n if dev_mode() else 0} written to runs/trials.csv)"
 
 
 def insample(futures_mode: str = "tables") -> None:
@@ -192,7 +197,7 @@ def insample(futures_mode: str = "tables") -> None:
         "H1_lo": res_placebo["H1"]["ci"][0], "H1_hi": res_placebo["H1"]["ci"][1],
         "sharpe_fc": res_placebo["H4"]["sharpe_fc"], "sharpe_cal": res_placebo["H4"]["sharpe_cal"],
         "note": "run_all --insample: placebo control (pre-registered), not a candidate strategy"}, git=git)
-    step(f"logged 2 rows to runs/trials.csv (config {head_row['config_hash']})", t0)
+    step(f"trial log: {written(2)} (config {head_row['config_hash']})", t0)
 
     # tables
     terc = tercile_labels(s_is["z"])
@@ -234,6 +239,10 @@ def insample(futures_mode: str = "tables") -> None:
     # futures layer (Phase 4, CLAUDE.md 7.9 and section 15): logs its trials before the Deflated Sharpe reads the log
     fut_block = futures(cash_cal=strat["calendar_only"], cash_supply_daily=fc_block["_supply_calendar_daily"],
                         cash_supply_gross_daily=fc_block.pop("_supply_calendar_gross_daily"), rf=rf, git=git, t0=t0)
+    if fut_block is not None and futures_mode == "tables":
+        step("futures: every futures number above was recomputed from the committed derived tables "
+             "(outputs/tables/futures_*); a full rebuild from raw Databento data needs DATABENTO_API_KEY in .env "
+             "and `python run_all.py --futures`", t0)
 
     # figure 5: equity curves (in-sample; the test window is added at Gate 2)
     navs = {"forecast-sized": (1.0 + strat["forecast_sized"].daily["excess"]).cumprod(),
@@ -638,7 +647,7 @@ def flowclock(cal, is_months, win, R, Y, demand, me_common: dict, git: dict, t0:
                 "H1_hi": b["H6"]["H6c"]["ci"][1], "sharpe_fc": s_fc, "sharpe_cal": s_cal,
                 "note": f"run_all: Flow Clock supply leg (PREREG_FLOWCLOCK.md), {key}, {cm:g}x costs; {note}; "
                         f"H1_* = H6c beta"}, git=git)
-    step("Flow Clock: logged 8 rows to runs/trials.csv", t0)
+    step(f"Flow Clock: {written(8)}", t0)
 
     # Phase 5 (in-sample): every risk rule on and off; by tenor, by decade, drawdown by year (descriptive)
     days_is = cal.days[(cal.days >= pd.Timestamp(IS_START)) & (cal.days <= pd.Timestamp(IS_END))]
@@ -773,7 +782,7 @@ def flowclock(cal, is_months, win, R, Y, demand, me_common: dict, git: dict, t0:
                 "of new issues vs reopenings, in-sample); config_hash and Sharpe columns repeat the in-sample 1x "
                 "supply_leg row, so distinct variants and the Deflated Sharpe's V are unchanged; "
                 "results.json[cmt_switch_diagnostic]"}, git=git)
-    step("Flow Clock Phase 4d: reopening control, cash engine check; logged 1 descriptive row", t0)
+    step(f"Flow Clock Phase 4d: reopening control, cash engine check; descriptive {written(1)}", t0)
     # H8 (PREREG_DEALERS.md): dealer balance sheets; an explanation test, not a strategy (one trial row, no Sharpe)
     h8b = h8_block(ev, ins, cal)
     r8 = h8b["in_sample"]
@@ -783,7 +792,7 @@ def flowclock(cal, is_months, win, R, Y, demand, me_common: dict, git: dict, t0:
         "H1_b": r8["c"]["b"], "H1_lo": r8["c"]["ci"][0], "H1_hi": r8["c"]["ci"][1], "sharpe_fc": "", "sharpe_cal": "",
         "note": "run_all H8 (PREREG_DEALERS.md): LS on zS_pre and zD (dealer coupon positions known at A-5), week "
                 "clusters; H1_* = c and its 95% CI; explanation test, not a strategy (Sharpe columns blank)"}, git=git)
-    step(f"H8: c = {r8['c']['b']:.4f} (t {r8['c']['t']:.2f}), {r8['n']} events; logged 1 row", t0)
+    step(f"H8: c = {r8['c']['b']:.4f} (t {r8['c']['t']:.2f}), {r8['n']} events; {written(1)}", t0)
     block = {"prereg": {"file": "PREREG_FLOWCLOCK.md", "tag": "prereg-flowclock", "commit": "8c41154"},
              **blocks, "oos": {"status": "test window runs once, after gate2-frozen"}, "_cmt_switch": cmt, "_h8": h8b,
              "_supply_calendar_daily": sup_is.daily["excess"],
