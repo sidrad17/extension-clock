@@ -2,16 +2,148 @@
   "meta": {
     "commit": "cc1bf00",
     "dirty": false,
-    "generated_utc": "2026-10-04T02:48:25Z",
+    "generated_utc": "2026-10-04T06:00:12Z",
     "snapshot_checksums_ok": true,
     "settings_hash": "4fc4ac187ed4",
     "version": "v6 (H8: in-sample; cash and futures; month-end leg, Flow Clock, CMT switch diagnostic, H8 dealer test)",
     "pending": [
-      "oos, flowclock.oos and H8.oos (Gate 2 only)",
       "in_sample.tips_replication (Phase 6)",
       "figure 5: test window added and shaded (Gate 2)"
     ],
-    "config_hash_headline": "aed4c3228355"
+    "config_hash_headline": "aed4c3228355",
+    "oos": {
+      "ran_utc": "2026-10-04T06:00:12Z",
+      "commit": "825135d",
+      "dirty": false,
+      "window": [
+        "2024-10-01",
+        "2026-09-30"
+      ],
+      "split": "2024-09-30",
+      "mode": "download",
+      "data": "data/oos/ (rows dated (IS_END, OOS_END]; vintage.json) + data/snapshot/ rows through IS_END",
+      "vintage": {
+        "end": "2026-09-30",
+        "files": {
+          "auctions.csv": {
+            "downloaded_utc": "2026-10-04T05:46:37Z",
+            "first": "2024-10-08",
+            "last": "2026-09-24",
+            "rows": 216,
+            "source": "Fiscal Data auctions_query",
+            "url": "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/od/auctions_query"
+          },
+          "fred_DGS1.csv": {
+            "downloaded_utc": "2026-10-04T05:46:35Z",
+            "first": "2024-10-01",
+            "last": "2026-09-30",
+            "rows": 522,
+            "source": "FRED DGS1",
+            "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS1"
+          },
+          "fred_DGS10.csv": {
+            "downloaded_utc": "2026-10-04T05:46:36Z",
+            "first": "2024-10-01",
+            "last": "2026-09-30",
+            "rows": 522,
+            "source": "FRED DGS10",
+            "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS10"
+          },
+          "fred_DGS2.csv": {
+            "downloaded_utc": "2026-10-04T05:46:35Z",
+            "first": "2024-10-01",
+            "last": "2026-09-30",
+            "rows": 522,
+            "source": "FRED DGS2",
+            "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS2"
+          },
+          "fred_DGS20.csv": {
+            "downloaded_utc": "2026-10-04T05:46:36Z",
+            "first": "2024-10-01",
+            "last": "2026-09-30",
+            "rows": 522,
+            "source": "FRED DGS20",
+            "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS20"
+          },
+          "fred_DGS3.csv": {
+            "downloaded_utc": "2026-10-04T05:46:35Z",
+            "first": "2024-10-01",
+            "last": "2026-09-30",
+            "rows": 522,
+            "source": "FRED DGS3",
+            "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS3"
+          },
+          "fred_DGS30.csv": {
+            "downloaded_utc": "2026-10-04T05:46:37Z",
+            "first": "2024-10-01",
+            "last": "2026-09-30",
+            "rows": 522,
+            "source": "FRED DGS30",
+            "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS30"
+          },
+          "fred_DGS5.csv": {
+            "downloaded_utc": "2026-10-04T05:46:36Z",
+            "first": "2024-10-01",
+            "last": "2026-09-30",
+            "rows": 522,
+            "source": "FRED DGS5",
+            "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS5"
+          },
+          "fred_DGS7.csv": {
+            "downloaded_utc": "2026-10-04T05:46:36Z",
+            "first": "2024-10-01",
+            "last": "2026-09-30",
+            "rows": 522,
+            "source": "FRED DGS7",
+            "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS7"
+          },
+          "fred_DTB3.csv": {
+            "downloaded_utc": "2026-10-04T05:46:37Z",
+            "first": "2024-10-01",
+            "last": "2026-09-30",
+            "rows": 522,
+            "source": "FRED DTB3",
+            "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DTB3"
+          },
+          "pd_treasury_positions.csv": {
+            "downloaded_utc": "2026-10-04T05:46:49Z",
+            "first": "2024-10-02",
+            "last": "2026-09-23",
+            "rows": 1456,
+            "source": "NY Fed Markets Data API, primary dealer positions",
+            "url": "https://markets.newyorkfed.org/api/pd/get/{keyid}.json"
+          },
+          "pension_pressure.csv": {
+            "downloaded_utc": "2026-10-04T05:46:51Z",
+            "first": "2024-10-01",
+            "last": "2026-08-31",
+            "rows": 480,
+            "source": "Ken French daily factors (derived)",
+            "url": "https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/F-F_Research_Data_Factors_daily_CSV.zip"
+          },
+          "soma_asof_dates.csv": {
+            "downloaded_utc": "2026-10-04T05:46:39Z",
+            "first": "2024-10-02",
+            "last": "2026-09-30",
+            "rows": 105,
+            "source": "NY Fed Markets Data API, SOMA as-of dates",
+            "url": "https://markets.newyorkfed.org/api/soma/asofdates/list.json"
+          },
+          "soma_notesbonds.csv": {
+            "downloaded_utc": "2026-10-04T05:46:39Z",
+            "first": "2024-10-16",
+            "last": "2026-09-23",
+            "rows": 18284,
+            "source": "NY Fed Markets Data API, SOMA notes and bonds by CUSIP",
+            "url": "https://markets.newyorkfed.org/api/soma/tsy/get/notesbonds/asof/{date}.json"
+          }
+        },
+        "note": "rows dated in (split, end] only; rows through the split come from data/snapshot/ (CLAUDE.md section 17)",
+        "split": "2024-09-30"
+      },
+      "futures": "raw",
+      "rules": "CLAUDE.md section 17; labels and kill conditions: src/oos_eval.py"
+    }
   },
   "validation": {
     "par_gap_by_decade": {
@@ -13035,17 +13167,1597 @@
     "note": "strategies rerun from 2019-01 (drawdown rule starts flat); z_m is the full-history past-only z"
   },
   "oos": {
-    "ran_utc": null,
-    "commit": null,
-    "H1": {},
-    "H1_addendum": {
-      "refunding_dummy": {},
-      "within_refunding": {},
-      "within_other": {},
-      "surprise": {}
+    "sample": [
+      "2024-10",
+      "2026-09"
+    ],
+    "H1": {
+      "b": 0.875161,
+      "se": 0.292507,
+      "t": 2.99193,
+      "ci": [
+        0.301858,
+        1.44847
+      ],
+      "n": 24,
+      "a": 0.185133,
+      "yield_bp": {
+        "b": 10.8337,
+        "se": 3.6236,
+        "t": 2.98975,
+        "ci": [
+          3.73155,
+          17.9358
+        ],
+        "n": 24
+      },
+      "mean_R": {
+        "n": 24,
+        "b": 0.151052,
+        "se": 0.179925,
+        "t": 0.839531,
+        "ci": [
+          -0.201594,
+          0.503698
+        ]
+      },
+      "mean_neg_dy_bp": {
+        "n": 24,
+        "b": 1.75,
+        "se": 2.26818,
+        "t": 0.771544,
+        "ci": [
+          -2.69555,
+          6.19555
+        ]
+      },
+      "terciles": {
+        "low": {
+          "mean": 0.2054,
+          "ci": [
+            -0.0876765,
+            0.5474
+          ],
+          "n": 8,
+          "z_min": -0.426596,
+          "z_max": -0.320522
+        },
+        "mid": {
+          "mean": -0.407476,
+          "ci": [
+            -0.692217,
+            -0.0558909
+          ],
+          "n": 8,
+          "z_min": -0.320302,
+          "z_max": -0.258783
+        },
+        "high": {
+          "mean": 0.655233,
+          "ci": [
+            0.120037,
+            1.1634
+          ],
+          "n": 8,
+          "z_min": 0.427042,
+          "z_max": 0.572923
+        }
+      },
+      "terciles_yield_bp": {
+        "low": {
+          "mean": 2.5,
+          "ci": [
+            -1.125,
+            6.75
+          ],
+          "n": 8
+        },
+        "mid": {
+          "mean": -5.25,
+          "ci": [
+            -8.875,
+            -0.875
+          ],
+          "n": 8
+        },
+        "high": {
+          "mean": 8.0,
+          "ci": [
+            1.25,
+            14.375
+          ],
+          "n": 8
+        }
+      },
+      "high_minus_low": 0.449832,
+      "sample": [
+        "2024-10",
+        "2026-09"
+      ],
+      "units": "R_m: 10-year window excess return, %; z: sd of FDD (past months only); yield_bp: -dy, bp",
+      "components": {
+        "ext": {
+          "b": 1.81569,
+          "se": 1.1665,
+          "t": 1.55652,
+          "ci": [
+            -0.470619,
+            4.10199
+          ]
+        },
+        "cash": {
+          "b": -0.408924,
+          "se": 0.783985,
+          "t": -0.521597,
+          "ci": [
+            -1.94551,
+            1.12766
+          ]
+        },
+        "n": 24,
+        "yield_bp": {
+          "ext": {
+            "b": 22.4436,
+            "se": 14.5888,
+            "t": 1.53841,
+            "ci": [
+              -6.14992,
+              51.037
+            ]
+          },
+          "cash": {
+            "b": -5.04132,
+            "se": 9.82568,
+            "t": -0.513076,
+            "ci": [
+              -24.2993,
+              14.2167
+            ]
+          }
+        },
+        "corr_z_ext_z_cash": 0.968259
+      }
     },
-    "H4": {},
-    "metrics": {}
+    "H1_addendum": {
+      "refunding_dummy": {
+        "b": {
+          "b": -1.90623,
+          "se": 1.5639,
+          "t": -1.21889,
+          "ci": [
+            -4.97141,
+            1.15896
+          ]
+        },
+        "c": {
+          "b": 2.33954,
+          "se": 1.32579,
+          "t": 1.76463,
+          "ci": [
+            -0.258966,
+            4.93804
+          ]
+        },
+        "n": 24
+      },
+      "within_refunding": {
+        "b": 3.13035,
+        "se": 4.17117,
+        "t": 0.750474,
+        "ci": [
+          -5.04499,
+          11.3057
+        ],
+        "n": 8
+      },
+      "within_other": {
+        "b": -4.59222,
+        "se": 3.03441,
+        "t": -1.51338,
+        "ci": [
+          -10.5395,
+          1.35511
+        ],
+        "n": 16
+      },
+      "yield_bp": {
+        "refunding_dummy": {
+          "b": {
+            "b": -24.8352,
+            "se": 19.6404,
+            "t": -1.2645,
+            "ci": [
+              -63.3296,
+              13.6593
+            ]
+          },
+          "c": {
+            "b": 30.0025,
+            "se": 16.6319,
+            "t": 1.80392,
+            "ci": [
+              -2.59536,
+              62.6003
+            ]
+          },
+          "n": 24
+        },
+        "within_refunding": {
+          "b": 39.9643,
+          "se": 52.2191,
+          "t": 0.765319,
+          "ci": [
+            -62.3834,
+            142.312
+          ],
+          "n": 8
+        },
+        "within_other": {
+          "b": -59.3925,
+          "se": 38.3207,
+          "t": -1.54988,
+          "ci": [
+            -134.5,
+            15.7147
+          ],
+          "n": 16
+        }
+      },
+      "surprise": {
+        "b": -1.39282,
+        "se": 0.306663,
+        "t": -4.54186,
+        "ci": [
+          -1.99387,
+          -0.791771
+        ],
+        "n": 24,
+        "yield_bp": {
+          "b": -17.4938,
+          "se": 3.81823,
+          "t": -4.58165,
+          "ci": [
+            -24.9774,
+            -10.0102
+          ],
+          "n": 24
+        },
+        "sample": [
+          "2024-10",
+          "2026-09"
+        ],
+        "prediction": "b_s > 0"
+      }
+    },
+    "H4": {
+      "sharpe_fc": 1.20279,
+      "sharpe_cal": 0.71139,
+      "diff": 0.491405,
+      "ci": [
+        0.0440169,
+        0.828903
+      ],
+      "p_le_0": 0.017,
+      "n_months": 24,
+      "n_boot": 10000,
+      "seed": 7
+    },
+    "H2": {
+      "coef": -2.49029,
+      "se": 1.29758,
+      "t": -1.91919,
+      "ci": [
+        -5.03349,
+        0.0529108
+      ],
+      "n_obs": 120,
+      "n_months": 24,
+      "n_by_bucket": {
+        "1-3y": 24,
+        "10-20y": 24,
+        "20y+": 24,
+        "3-7y": 24,
+        "7-10y": 24
+      },
+      "ext_only": {
+        "coef": -2.62956,
+        "se": 1.36786,
+        "t": -1.92238,
+        "ci": [
+          -5.31052,
+          0.0514079
+        ],
+        "n_obs": 120,
+        "n_months": 24,
+        "n_by_bucket": {
+          "1-3y": 24,
+          "10-20y": 24,
+          "20y+": 24,
+          "3-7y": 24,
+          "7-10y": 24
+        }
+      },
+      "mean_neg_dy_bp_by_bucket": {
+        "1-3y": 2.95833,
+        "3-7y": 3.16667,
+        "7-10y": 1.75,
+        "10-20y": 0.5,
+        "20y+": 0.666667
+      },
+      "sample": [
+        "2024-10",
+        "2026-09"
+      ],
+      "prediction": "coef > 0: buckets with more predicted buying see larger yield falls",
+      "units": "y: -dy of the bucket's CMT yield over E -> T, bp; x: past-only z of the bucket's demand"
+    },
+    "H3": {
+      "coef": -0.234934,
+      "ci": [
+        -0.660967,
+        0.191098
+      ],
+      "t": -1.08082,
+      "se": 0.217367,
+      "n": 23,
+      "a": -0.0300446,
+      "mean_R3": {
+        "n": 23,
+        "b": -0.0232002,
+        "se": 0.112737,
+        "t": -0.205789,
+        "ci": [
+          -0.244161,
+          0.197761
+        ]
+      },
+      "mean_neg_dy3_bp": {
+        "n": 23,
+        "b": -0.347826,
+        "se": 1.40342,
+        "t": -0.247841,
+        "ci": [
+          -3.09849,
+          2.40283
+        ]
+      },
+      "yield_bp": {
+        "b": -2.86909,
+        "se": 2.69641,
+        "t": -1.06404,
+        "ci": [
+          -8.15395,
+          2.41577
+        ],
+        "n": 23
+      },
+      "terciles": {
+        "low": {
+          "mean": -0.0364341,
+          "ci": [
+            -0.637649,
+            0.568412
+          ],
+          "n": 8
+        },
+        "mid": {
+          "mean": 0.158266,
+          "ci": [
+            -0.281269,
+            0.69064
+          ],
+          "n": 7
+        },
+        "high": {
+          "mean": -0.168749,
+          "ci": [
+            -0.461682,
+            0.114219
+          ],
+          "n": 8
+        }
+      },
+      "high_minus_low": -0.132315,
+      "mean_R_same_months": 0.193599,
+      "reversal_share_of_run_up": -0.119836,
+      "sample": [
+        "2024-10",
+        "2026-08"
+      ],
+      "prediction": "coef < 0 (larger reversal after heavy forced demand) and mean_R3 < 0",
+      "units": "R3: 10-year excess return T -> T+3, %; yield_bp: -dy over T -> T+3, bp"
+    },
+    "H5": {
+      "coefs": {
+        "const": {
+          "b": 1.12586,
+          "se": 1.11245,
+          "t": 1.01206,
+          "ci": [
+            -1.0545,
+            3.30623
+          ]
+        },
+        "z": {
+          "b": 1.7206,
+          "se": 2.3469,
+          "t": 0.73314,
+          "ci": [
+            -2.87923,
+            6.32043
+          ]
+        },
+        "z_pension": {
+          "b": 0.0982529,
+          "se": 0.125555,
+          "t": 0.782549,
+          "ci": [
+            -0.14783,
+            0.344336
+          ]
+        },
+        "quarter_end": {
+          "b": -0.336272,
+          "se": 0.511533,
+          "t": -0.65738,
+          "ci": [
+            -1.33886,
+            0.666315
+          ]
+        },
+        "year_end": {
+          "b": -0.316786,
+          "se": 0.196258,
+          "t": -1.61413,
+          "ci": [
+            -0.701444,
+            0.0678732
+          ]
+        },
+        "ref": {
+          "b": -1.37567,
+          "se": 2.29849,
+          "t": -0.598508,
+          "ci": [
+            -5.88063,
+            3.1293
+          ]
+        },
+        "fomc": {
+          "b": -1.12226,
+          "se": 0.543375,
+          "t": -2.06535,
+          "ci": [
+            -2.18725,
+            -0.0572616
+          ]
+        }
+      },
+      "n": 23,
+      "r2": 0.413841,
+      "yield_bp": {
+        "const": {
+          "b": 13.8296,
+          "se": 13.8441,
+          "t": 0.998953,
+          "ci": [
+            -13.3043,
+            40.9636
+          ]
+        },
+        "z": {
+          "b": 21.0552,
+          "se": 29.3111,
+          "t": 0.718335,
+          "ci": [
+            -36.3935,
+            78.504
+          ]
+        },
+        "z_pension": {
+          "b": 1.23817,
+          "se": 1.55805,
+          "t": 0.79469,
+          "ci": [
+            -1.81555,
+            4.29188
+          ]
+        },
+        "quarter_end": {
+          "b": -4.19064,
+          "se": 6.30386,
+          "t": -0.664774,
+          "ci": [
+            -16.546,
+            8.16469
+          ]
+        },
+        "year_end": {
+          "b": -3.95221,
+          "se": 2.4505,
+          "t": -1.61282,
+          "ci": [
+            -8.7551,
+            0.850681
+          ]
+        },
+        "ref": {
+          "b": -16.9116,
+          "se": 28.6911,
+          "t": -0.589439,
+          "ci": [
+            -73.1451,
+            39.3218
+          ]
+        },
+        "fomc": {
+          "b": -13.9916,
+          "se": 6.726,
+          "t": -2.08023,
+          "ci": [
+            -27.1743,
+            -0.808878
+          ]
+        }
+      },
+      "counts": {
+        "quarter_end": 7,
+        "year_end": 2,
+        "ref": 8,
+        "fomc": 6
+      },
+      "sample": [
+        "2024-10",
+        "2026-08"
+      ],
+      "prediction": "z_pension > 0 (adds a little); quarter_end about 0 beyond forced demand"
+    },
+    "placebo": {
+      "window": "business days 4-7 of month m+1, paired with z_m",
+      "H1": {
+        "b": 0.000393361,
+        "se": 0.441066,
+        "t": 0.000891843,
+        "ci": [
+          -0.864079,
+          0.864866
+        ],
+        "n": 23,
+        "a": -0.356022,
+        "yield_bp": {
+          "b": -0.0322482,
+          "se": 5.51336,
+          "t": -0.00584909,
+          "ci": [
+            -10.8382,
+            10.7737
+          ],
+          "n": 23
+        },
+        "mean_R": {
+          "n": 23,
+          "b": -0.356034,
+          "se": 0.188017,
+          "t": -1.89362,
+          "ci": [
+            -0.724541,
+            0.0124732
+          ]
+        },
+        "mean_neg_dy_bp": {
+          "n": 23,
+          "b": -4.56522,
+          "se": 2.3451,
+          "t": -1.94671,
+          "ci": [
+            -9.16153,
+            0.0310913
+          ]
+        },
+        "terciles": {
+          "low": {
+            "mean": -0.435201,
+            "ci": [
+              -0.863416,
+              -0.0304604
+            ],
+            "n": 8,
+            "z_min": -0.426596,
+            "z_max": -0.320522
+          },
+          "mid": {
+            "mean": -0.227433,
+            "ci": [
+              -1.02229,
+              0.454181
+            ],
+            "n": 7,
+            "z_min": -0.320302,
+            "z_max": -0.258783
+          },
+          "high": {
+            "mean": -0.389391,
+            "ci": [
+              -0.837435,
+              0.105859
+            ],
+            "n": 8,
+            "z_min": 0.427042,
+            "z_max": 0.572923
+          }
+        },
+        "terciles_yield_bp": {
+          "low": {
+            "mean": -5.5,
+            "ci": [
+              -10.875,
+              -0.5
+            ],
+            "n": 8
+          },
+          "mid": {
+            "mean": -3.0,
+            "ci": [
+              -12.8571,
+              5.42857
+            ],
+            "n": 7
+          },
+          "high": {
+            "mean": -5.0,
+            "ci": [
+              -10.75,
+              1.125
+            ],
+            "n": 8
+          }
+        },
+        "high_minus_low": 0.0458097,
+        "sample": [
+          "2024-10",
+          "2026-08"
+        ],
+        "units": "R_m: 10-year window excess return, %; z: sd of FDD (past months only); yield_bp: -dy, bp"
+      },
+      "components": {
+        "ext": {
+          "b": 2.97407,
+          "se": 1.70076,
+          "t": 1.74867,
+          "ci": [
+            -0.359365,
+            6.3075
+          ]
+        },
+        "cash": {
+          "b": -1.88859,
+          "se": 1.07779,
+          "t": -1.75228,
+          "ci": [
+            -4.00101,
+            0.223834
+          ]
+        },
+        "n": 23,
+        "yield_bp": {
+          "ext": {
+            "b": 37.5901,
+            "se": 21.1499,
+            "t": 1.77732,
+            "ci": [
+              -3.86292,
+              79.0431
+            ]
+          },
+          "cash": {
+            "b": -23.9019,
+            "se": 13.4286,
+            "t": -1.77993,
+            "ci": [
+              -50.2214,
+              2.41757
+            ]
+          }
+        },
+        "corr_z_ext_z_cash": 0.968608
+      },
+      "H4": {
+        "sharpe_fc": -1.33335,
+        "sharpe_cal": -1.70096,
+        "diff": 0.367615,
+        "ci": [
+          -0.301013,
+          1.03683
+        ],
+        "p_le_0": 0.1648,
+        "n_months": 24,
+        "n_boot": 10000,
+        "seed": 7
+      },
+      "metrics": {
+        "forecast_sized": {
+          "period": [
+            "2024-10-01",
+            "2026-09-30"
+          ],
+          "years": 1.99863,
+          "ann_return_pct": -0.600809,
+          "ann_excess_return_pct": -4.4626,
+          "vol_pct": 3.41191,
+          "sharpe": -1.33335,
+          "sharpe_gross": -1.1646,
+          "max_drawdown_pct": 4.06306,
+          "max_drawdown_excess_pct": 8.72034,
+          "turnover_x_per_year": 28.7201,
+          "hit_rate": 0.217391,
+          "worst_window": {
+            "month": "2025-11",
+            "net_pnl_pct": -2.60236
+          },
+          "n_windows": 23,
+          "mean_window_net_pnl_pct": -0.391663,
+          "cost_pct_per_year": 0.578936,
+          "mean_notional_x_capital": 1.24784,
+          "n_notional_capped": 0,
+          "n_fomc_halved": 2,
+          "n_drawdown_halved": 1
+        },
+        "calendar_only": {
+          "period": [
+            "2024-10-01",
+            "2026-09-30"
+          ],
+          "years": 1.99863,
+          "ann_return_pct": -0.331922,
+          "ann_excess_return_pct": -4.20428,
+          "vol_pct": 2.52968,
+          "sharpe": -1.70096,
+          "sharpe_gross": -1.55519,
+          "max_drawdown_pct": 4.96572,
+          "max_drawdown_excess_pct": 8.22641,
+          "turnover_x_per_year": 19.0659,
+          "hit_rate": 0.217391,
+          "worst_window": {
+            "month": "2025-03",
+            "net_pnl_pct": -2.59428
+          },
+          "n_windows": 23,
+          "mean_window_net_pnl_pct": -0.370453,
+          "cost_pct_per_year": 0.383862,
+          "mean_notional_x_capital": 0.828386,
+          "n_notional_capped": 0,
+          "n_fomc_halved": 2,
+          "n_drawdown_halved": 15
+        }
+      }
+    },
+    "random_windows": {
+      "label": "luck test",
+      "n_draws": 1000,
+      "seed": 7,
+      "n_months": 24,
+      "months_without_candidate": 0,
+      "mean_candidates_per_month": 4.91667,
+      "month_end_mean_pct": 0.151052,
+      "random_mean_pct": -0.348715,
+      "random_sd_pct": 0.0965427,
+      "random_p2_5_pct": -0.533281,
+      "random_p50_pct": -0.347653,
+      "random_p97_5_pct": -0.1576,
+      "share_random_ge_month_end": 0.0
+    },
+    "metrics": {
+      "forecast_sized": {
+        "period": [
+          "2024-10-01",
+          "2026-09-30"
+        ],
+        "years": 1.99863,
+        "ann_return_pct": 8.06124,
+        "ann_excess_return_pct": 3.86491,
+        "vol_pct": 3.22533,
+        "sharpe": 1.20279,
+        "sharpe_gross": 1.37853,
+        "max_drawdown_pct": 2.81867,
+        "max_drawdown_excess_pct": 3.75314,
+        "turnover_x_per_year": 28.3108,
+        "hit_rate": 0.541667,
+        "worst_window": {
+          "month": "2026-08",
+          "net_pnl_pct": -1.95079
+        },
+        "n_windows": 24,
+        "mean_window_net_pnl_pct": 0.320077,
+        "cost_pct_per_year": 0.568834,
+        "mean_notional_x_capital": 1.17881,
+        "n_notional_capped": 0,
+        "n_fomc_halved": 6,
+        "n_drawdown_halved": 0
+      },
+      "calendar_only": {
+        "period": [
+          "2024-10-01",
+          "2026-09-30"
+        ],
+        "years": 1.99863,
+        "ann_return_pct": 6.12735,
+        "ann_excess_return_pct": 2.0058,
+        "vol_pct": 2.87569,
+        "sharpe": 0.71139,
+        "sharpe_gross": 0.910236,
+        "max_drawdown_pct": 2.8474,
+        "max_drawdown_excess_pct": 3.78162,
+        "turnover_x_per_year": 28.1267,
+        "hit_rate": 0.541667,
+        "worst_window": {
+          "month": "2026-08",
+          "net_pnl_pct": -1.31634
+        },
+        "n_windows": 24,
+        "mean_window_net_pnl_pct": 0.168787,
+        "cost_pct_per_year": 0.564967,
+        "mean_notional_x_capital": 1.17114,
+        "n_notional_capped": 0,
+        "n_fomc_halved": 6,
+        "n_drawdown_halved": 0
+      },
+      "curve_allocated": {
+        "period": [
+          "2024-10-01",
+          "2026-09-30"
+        ],
+        "years": 1.99863,
+        "ann_return_pct": 6.11833,
+        "ann_excess_return_pct": 1.9971,
+        "vol_pct": 2.78573,
+        "sharpe": 0.730359,
+        "sharpe_gross": 0.936049,
+        "max_drawdown_pct": 2.75152,
+        "max_drawdown_excess_pct": 3.70335,
+        "turnover_x_per_year": 32.3134,
+        "hit_rate": 0.541667,
+        "worst_window": {
+          "month": "2026-08",
+          "net_pnl_pct": -1.27651
+        },
+        "n_windows": 24,
+        "mean_window_net_pnl_pct": 0.167867,
+        "cost_pct_per_year": 0.564967,
+        "mean_notional_x_capital": 1.34547,
+        "n_notional_capped": 0,
+        "n_fomc_halved": 6,
+        "n_drawdown_halved": 0
+      }
+    },
+    "cost_stress": {
+      "cost_mult": 2.0,
+      "H4": {
+        "sharpe_fc": 1.02479,
+        "sharpe_cal": 0.51196,
+        "diff": 0.512834,
+        "ci": [
+          0.0515239,
+          0.849824
+        ],
+        "p_le_0": 0.016,
+        "n_months": 24,
+        "n_boot": 10000,
+        "seed": 7
+      },
+      "metrics": {
+        "forecast_sized": {
+          "period": [
+            "2024-10-01",
+            "2026-09-30"
+          ],
+          "years": 1.99863,
+          "ann_return_pct": 7.44848,
+          "ann_excess_return_pct": 3.27584,
+          "vol_pct": 3.2253,
+          "sharpe": 1.02479,
+          "sharpe_gross": 1.37853,
+          "max_drawdown_pct": 2.98308,
+          "max_drawdown_excess_pct": 3.916,
+          "turnover_x_per_year": 28.3108,
+          "hit_rate": 0.541667,
+          "worst_window": {
+            "month": "2026-08",
+            "net_pnl_pct": -2.03737
+          },
+          "n_windows": 24,
+          "mean_window_net_pnl_pct": 0.272706,
+          "cost_pct_per_year": 1.13767,
+          "mean_notional_x_capital": 1.17881,
+          "n_notional_capped": 0,
+          "n_fomc_halved": 6,
+          "n_drawdown_halved": 0
+        },
+        "calendar_only": {
+          "period": [
+            "2024-10-01",
+            "2026-09-30"
+          ],
+          "years": 1.99863,
+          "ann_return_pct": 5.52939,
+          "ann_excess_return_pct": 1.43098,
+          "vol_pct": 2.88206,
+          "sharpe": 0.51196,
+          "sharpe_gross": 0.910236,
+          "max_drawdown_pct": 3.01298,
+          "max_drawdown_excess_pct": 3.94563,
+          "turnover_x_per_year": 28.1267,
+          "hit_rate": 0.541667,
+          "worst_window": {
+            "month": "2026-08",
+            "net_pnl_pct": -1.37475
+          },
+          "n_windows": 24,
+          "mean_window_net_pnl_pct": 0.121739,
+          "cost_pct_per_year": 1.12993,
+          "mean_notional_x_capital": 1.17114,
+          "n_notional_capped": 0,
+          "n_fomc_halved": 6,
+          "n_drawdown_halved": 0
+        }
+      }
+    },
+    "curve_allocated": {
+      "vs_calendar_only": {
+        "sharpe_fc": 0.730359,
+        "sharpe_cal": 0.71139,
+        "diff": 0.0189694,
+        "ci": [
+          -0.0761373,
+          0.0966519
+        ],
+        "p_le_0": 0.3507,
+        "n_months": 24,
+        "n_boot": 10000,
+        "seed": 7
+      },
+      "vs_calendar_only_cost_2x": {
+        "sharpe_fc": 0.524207,
+        "sharpe_cal": 0.51196,
+        "diff": 0.0122469,
+        "ci": [
+          -0.0835373,
+          0.0892686
+        ],
+        "p_le_0": 0.4088,
+        "n_months": 24,
+        "n_boot": 10000,
+        "seed": 7
+      },
+      "metrics_cost_2x": {
+        "period": [
+          "2024-10-01",
+          "2026-09-30"
+        ],
+        "years": 1.99863,
+        "ann_return_pct": 5.52039,
+        "ann_excess_return_pct": 1.42229,
+        "vol_pct": 2.79346,
+        "sharpe": 0.524207,
+        "sharpe_gross": 0.936049,
+        "max_drawdown_pct": 2.91726,
+        "max_drawdown_excess_pct": 3.86749,
+        "turnover_x_per_year": 32.3134,
+        "hit_rate": 0.541667,
+        "worst_window": {
+          "month": "2026-08",
+          "net_pnl_pct": -1.33492
+        },
+        "n_windows": 24,
+        "mean_window_net_pnl_pct": 0.120818,
+        "cost_pct_per_year": 1.12993,
+        "mean_notional_x_capital": 1.34547,
+        "n_notional_capped": 0,
+        "n_fomc_halved": 6,
+        "n_drawdown_halved": 0
+      },
+      "n_months_flat": 0,
+      "flat_months": [],
+      "n_months_bucket_excluded": 0,
+      "months_bucket_excluded_by_bucket": {},
+      "mean_weights": {
+        "1-3y": 0.0416593,
+        "3-7y": 0.182527,
+        "7-10y": 0.504008,
+        "10-20y": 0.0762017,
+        "20y+": 0.195604
+      },
+      "note": "DV01 = calendar-only DV01 split across buckets in proportion to max(fdd_b, 0) (src/backtest.py)"
+    },
+    "labels": {
+      "headline": {
+        "H1": {
+          "estimate": 0.875161,
+          "t": 2.99193,
+          "ci": [
+            0.301858,
+            1.44847
+          ],
+          "n": 24,
+          "in_sample": 0.0107514,
+          "label": "sign confirmed",
+          "rule": "HYPOTHESIS.md power note: the test window \"can confirm the sign, not significance\"; sign confirmed if b > 0"
+        },
+        "H4": {
+          "sharpe_fc": 1.20279,
+          "sharpe_cal": 0.71139,
+          "estimate": 0.491405,
+          "ci": [
+            0.0440169,
+            0.828903
+          ],
+          "p_le_0": 0.017,
+          "in_sample": -0.0541097,
+          "label": "pass",
+          "rule": "HYPOTHESIS.md: forecast-sized beats calendar-only \"in sign in the test window\"; pass if the net Sharpe difference (1x) > 0"
+        },
+        "H8": {
+          "estimate": -0.0211205,
+          "t": -0.166936,
+          "p_one_sided": 0.56629,
+          "n": 101,
+          "in_sample": 0.00568273,
+          "label": "fail",
+          "rule": "PREREG_DEALERS.md: pass if c > 0 and one-sided p < 0.05"
+        }
+      },
+      "tests": [
+        {
+          "name": "H1 component: extension",
+          "estimate": 1.81569,
+          "t": 1.55652,
+          "n": null,
+          "in_sample": -0.0614868,
+          "in_sample_t": -0.861836,
+          "label": "not consistent",
+          "rule": "estimate, t and sign; consistent if the sign matches in-sample"
+        },
+        {
+          "name": "H1 component: coupon cash",
+          "estimate": -0.408924,
+          "t": -0.521597,
+          "n": null,
+          "in_sample": 0.0865162,
+          "in_sample_t": 1.0588,
+          "label": "not consistent",
+          "rule": "estimate, t and sign; consistent if the sign matches in-sample"
+        },
+        {
+          "name": "Addendum (a): b with refunding dummy",
+          "estimate": -1.90623,
+          "t": -1.21889,
+          "n": null,
+          "in_sample": -0.0694781,
+          "in_sample_t": -0.672173,
+          "label": "consistent",
+          "rule": "estimate, t and sign; consistent if the sign matches in-sample"
+        },
+        {
+          "name": "Addendum (a): refunding dummy c",
+          "estimate": 2.33954,
+          "t": 1.76463,
+          "n": null,
+          "in_sample": 0.169453,
+          "in_sample_t": 1.01046,
+          "label": "consistent",
+          "rule": "estimate, t and sign; consistent if the sign matches in-sample"
+        },
+        {
+          "name": "Addendum (b): b within refunding months",
+          "estimate": 3.13035,
+          "t": 0.750474,
+          "n": 8,
+          "in_sample": -0.245741,
+          "in_sample_t": -1.57702,
+          "label": "not consistent",
+          "rule": "estimate, t and sign; consistent if the sign matches in-sample"
+        },
+        {
+          "name": "Addendum (b): b within other months",
+          "estimate": -4.59222,
+          "t": -1.51338,
+          "n": 16,
+          "in_sample": 0.125014,
+          "in_sample_t": 0.897054,
+          "label": "not consistent",
+          "rule": "estimate, t and sign; consistent if the sign matches in-sample"
+        },
+        {
+          "name": "Addendum (c): surprise extension b_s",
+          "estimate": -1.39282,
+          "t": -4.54186,
+          "n": 24,
+          "in_sample": -0.0639027,
+          "in_sample_t": -1.22046,
+          "label": "consistent",
+          "rule": "estimate, t and sign; consistent if the sign matches in-sample"
+        },
+        {
+          "name": "H2: bucket demand coefficient",
+          "estimate": -2.49029,
+          "t": -1.91919,
+          "n": 120,
+          "in_sample": 0.0206762,
+          "in_sample_t": 0.168641,
+          "label": "not consistent",
+          "rule": "estimate, t and sign; consistent if the sign matches in-sample"
+        },
+        {
+          "name": "H3: reversal slope on z",
+          "estimate": -0.234934,
+          "t": -1.08082,
+          "n": 23,
+          "in_sample": 0.0789818,
+          "in_sample_t": 1.43764,
+          "label": "not consistent",
+          "rule": "estimate, t and sign; consistent if the sign matches in-sample"
+        },
+        {
+          "name": "H3: mean reversal R3",
+          "estimate": -0.0232002,
+          "t": -0.205789,
+          "n": 23,
+          "in_sample": -0.0631289,
+          "in_sample_t": -1.2325,
+          "label": "consistent",
+          "rule": "estimate, t and sign; consistent if the sign matches in-sample"
+        },
+        {
+          "name": "H5: const",
+          "estimate": 1.12586,
+          "t": 1.01206,
+          "n": null,
+          "in_sample": 0.252945,
+          "in_sample_t": 2.56063,
+          "label": "consistent",
+          "rule": "estimate, t and sign; consistent if the sign matches in-sample"
+        },
+        {
+          "name": "H5: z",
+          "estimate": 1.7206,
+          "t": 0.73314,
+          "n": null,
+          "in_sample": -0.068466,
+          "in_sample_t": -0.657138,
+          "label": "not consistent",
+          "rule": "estimate, t and sign; consistent if the sign matches in-sample"
+        },
+        {
+          "name": "H5: z_pension",
+          "estimate": 0.0982529,
+          "t": 0.782549,
+          "n": null,
+          "in_sample": 0.036864,
+          "in_sample_t": 0.957213,
+          "label": "consistent",
+          "rule": "estimate, t and sign; consistent if the sign matches in-sample"
+        },
+        {
+          "name": "H5: quarter_end",
+          "estimate": -0.336272,
+          "t": -0.65738,
+          "n": null,
+          "in_sample": -0.140063,
+          "in_sample_t": -1.17804,
+          "label": "consistent",
+          "rule": "estimate, t and sign; consistent if the sign matches in-sample"
+        },
+        {
+          "name": "H5: year_end",
+          "estimate": -0.316786,
+          "t": -1.61413,
+          "n": null,
+          "in_sample": 0.0364805,
+          "in_sample_t": 0.238101,
+          "label": "not consistent",
+          "rule": "estimate, t and sign; consistent if the sign matches in-sample"
+        },
+        {
+          "name": "H5: ref",
+          "estimate": -1.37567,
+          "t": -0.598508,
+          "n": null,
+          "in_sample": 0.0544599,
+          "in_sample_t": 0.29856,
+          "label": "not consistent",
+          "rule": "estimate, t and sign; consistent if the sign matches in-sample"
+        },
+        {
+          "name": "H5: fomc",
+          "estimate": -1.12226,
+          "t": -2.06535,
+          "n": null,
+          "in_sample": -0.179519,
+          "in_sample_t": -1.35222,
+          "label": "consistent",
+          "rule": "estimate, t and sign; consistent if the sign matches in-sample"
+        },
+        {
+          "name": "Placebo: H1 b (bdays 4-7)",
+          "estimate": 0.000393361,
+          "t": 0.000891843,
+          "n": 23,
+          "in_sample": -0.0836352,
+          "in_sample_t": -1.32444,
+          "label": "not consistent",
+          "rule": "estimate, t and sign; consistent if the sign matches in-sample"
+        },
+        {
+          "name": "Placebo: H4 Sharpe difference",
+          "estimate": 0.367615,
+          "ci": [
+            -0.301013,
+            1.03683
+          ],
+          "p_le_0": 0.1648,
+          "in_sample": -0.127744,
+          "label": "not consistent",
+          "rule": "net Sharpe difference, paired bootstrap by month; consistent if its sign matches in-sample"
+        },
+        {
+          "name": "Luck test: month-end mean (%)",
+          "estimate": 0.151052,
+          "in_sample": 0.194449,
+          "label": "consistent",
+          "rule": "consistent if the sign matches in-sample"
+        },
+        {
+          "name": "H4 at 2x costs: Sharpe difference",
+          "estimate": 0.512834,
+          "ci": [
+            0.0515239,
+            0.849824
+          ],
+          "p_le_0": 0.016,
+          "in_sample": -0.032073,
+          "label": "not consistent",
+          "rule": "net Sharpe difference, paired bootstrap by month; consistent if its sign matches in-sample"
+        },
+        {
+          "name": "Curve-allocated vs calendar-only, 1x",
+          "estimate": 0.0189694,
+          "ci": [
+            -0.0761373,
+            0.0966519
+          ],
+          "p_le_0": 0.3507,
+          "in_sample": 0.0617136,
+          "label": "consistent",
+          "rule": "net Sharpe difference, paired bootstrap by month; consistent if its sign matches in-sample"
+        },
+        {
+          "name": "Curve-allocated vs calendar-only, 2x",
+          "estimate": 0.0122469,
+          "ci": [
+            -0.0835373,
+            0.0892686
+          ],
+          "p_le_0": 0.4088,
+          "in_sample": 0.0835583,
+          "label": "consistent",
+          "rule": "net Sharpe difference, paired bootstrap by month; consistent if its sign matches in-sample"
+        },
+        {
+          "name": "H6a: mean pre-auction return",
+          "estimate": -0.136679,
+          "t": -1.37492,
+          "n": 167,
+          "in_sample": -0.102381,
+          "in_sample_t": -3.31345,
+          "label": "consistent",
+          "rule": "estimate, t and sign; consistent if the sign matches in-sample"
+        },
+        {
+          "name": "H6b: mean post-auction return",
+          "estimate": -0.0567814,
+          "t": -0.740845,
+          "n": 167,
+          "in_sample": 0.114049,
+          "in_sample_t": 3.43954,
+          "label": "not consistent",
+          "rule": "estimate, t and sign; consistent if the sign matches in-sample"
+        },
+        {
+          "name": "H6c: size slope beta",
+          "estimate": -0.161191,
+          "t": -0.753243,
+          "n": 167,
+          "in_sample": 0.134822,
+          "in_sample_t": 3.43177,
+          "label": "not consistent",
+          "rule": "estimate, t and sign; consistent if the sign matches in-sample"
+        },
+        {
+          "name": "H7: c on zA",
+          "estimate": -0.24584,
+          "t": -2.20992,
+          "n": null,
+          "in_sample": 0.0561271,
+          "in_sample_t": 2.34582,
+          "label": "not consistent",
+          "rule": "estimate, t and sign; consistent if the sign matches in-sample"
+        },
+        {
+          "name": "H7: a (month-end component)",
+          "estimate": 0.498154,
+          "t": 3.32996,
+          "n": null,
+          "in_sample": 0.161844,
+          "in_sample_t": 3.48544,
+          "label": "consistent",
+          "rule": "estimate, t and sign; consistent if the sign matches in-sample"
+        },
+        {
+          "name": "Headline 3: book vs demand leg, 1x",
+          "estimate": -0.896332,
+          "ci": [
+            -2.28317,
+            0.45143
+          ],
+          "p_le_0": 0.9079,
+          "in_sample": 0.240339,
+          "label": "not consistent",
+          "rule": "net Sharpe difference, paired bootstrap by month; consistent if its sign matches in-sample"
+        },
+        {
+          "name": "Headline 3: book vs demand leg, 2x",
+          "estimate": -1.06478,
+          "ci": [
+            -2.54935,
+            0.360476
+          ],
+          "p_le_0": 0.9277,
+          "in_sample": 0.0572168,
+          "label": "not consistent",
+          "rule": "net Sharpe difference, paired bootstrap by month; consistent if its sign matches in-sample"
+        },
+        {
+          "name": "Size-weighted vs calendar supply leg",
+          "estimate": 0.185987,
+          "ci": [
+            -0.755616,
+            1.23251
+          ],
+          "p_le_0": 0.3665,
+          "in_sample": 0.0473348,
+          "label": "consistent",
+          "rule": "net Sharpe difference, paired bootstrap by month; consistent if its sign matches in-sample"
+        }
+      ],
+      "strategies": [
+        {
+          "name": "forecast-sized, 1x",
+          "sharpe": 1.20279,
+          "t": 1.69255,
+          "in_sample_sharpe": 0.57259,
+          "label": "consistent",
+          "rule": "net Sharpe with t = mean / (sd / sqrt(days)) of daily net excess; consistent if its sign matches the in-sample net Sharpe at the same cost"
+        },
+        {
+          "name": "forecast-sized, 2x",
+          "sharpe": 1.02479,
+          "t": 1.44207,
+          "in_sample_sharpe": 0.418501,
+          "label": "consistent",
+          "rule": "net Sharpe with t = mean / (sd / sqrt(days)) of daily net excess; consistent if its sign matches the in-sample net Sharpe at the same cost"
+        },
+        {
+          "name": "calendar-only, 1x",
+          "sharpe": 0.71139,
+          "t": 1.00105,
+          "in_sample_sharpe": 0.626699,
+          "label": "consistent",
+          "rule": "net Sharpe with t = mean / (sd / sqrt(days)) of daily net excess; consistent if its sign matches the in-sample net Sharpe at the same cost"
+        },
+        {
+          "name": "calendar-only, 2x",
+          "sharpe": 0.51196,
+          "t": 0.72042,
+          "in_sample_sharpe": 0.450574,
+          "label": "consistent",
+          "rule": "net Sharpe with t = mean / (sd / sqrt(days)) of daily net excess; consistent if its sign matches the in-sample net Sharpe at the same cost"
+        },
+        {
+          "name": "curve-allocated, 1x",
+          "sharpe": 0.730359,
+          "t": 1.02775,
+          "in_sample_sharpe": 0.688413,
+          "label": "consistent",
+          "rule": "net Sharpe with t = mean / (sd / sqrt(days)) of daily net excess; consistent if its sign matches the in-sample net Sharpe at the same cost"
+        },
+        {
+          "name": "curve-allocated, 2x",
+          "sharpe": 0.524207,
+          "t": 0.737654,
+          "in_sample_sharpe": 0.534132,
+          "label": "consistent",
+          "rule": "net Sharpe with t = mean / (sd / sqrt(days)) of daily net excess; consistent if its sign matches the in-sample net Sharpe at the same cost"
+        },
+        {
+          "name": "Flow Clock book, 1x",
+          "sharpe": -0.184942,
+          "t": -0.260247,
+          "in_sample_sharpe": 0.867038,
+          "label": "not consistent",
+          "rule": "net Sharpe with t = mean / (sd / sqrt(days)) of daily net excess; consistent if its sign matches the in-sample net Sharpe at the same cost"
+        },
+        {
+          "name": "Flow Clock book, 2x",
+          "sharpe": -0.552817,
+          "t": -0.777913,
+          "in_sample_sharpe": 0.50779,
+          "label": "not consistent",
+          "rule": "net Sharpe with t = mean / (sd / sqrt(days)) of daily net excess; consistent if its sign matches the in-sample net Sharpe at the same cost"
+        },
+        {
+          "name": "cash supply leg, 1x",
+          "sharpe": -0.678298,
+          "t": -0.954489,
+          "in_sample_sharpe": 0.80144,
+          "label": "not consistent",
+          "rule": "net Sharpe with t = mean / (sd / sqrt(days)) of daily net excess; consistent if its sign matches the in-sample net Sharpe at the same cost"
+        },
+        {
+          "name": "cash supply leg, 2x",
+          "sharpe": -1.11309,
+          "t": -1.56632,
+          "in_sample_sharpe": 0.457753,
+          "label": "not consistent",
+          "rule": "net Sharpe with t = mean / (sd / sqrt(days)) of daily net excess; consistent if its sign matches the in-sample net Sharpe at the same cost"
+        },
+        {
+          "name": "demand leg alone, 1x",
+          "sharpe": 0.71139,
+          "t": 1.00105,
+          "in_sample_sharpe": 0.626699,
+          "label": "consistent",
+          "rule": "net Sharpe with t = mean / (sd / sqrt(days)) of daily net excess; consistent if its sign matches the in-sample net Sharpe at the same cost"
+        },
+        {
+          "name": "demand leg alone, 2x",
+          "sharpe": 0.51196,
+          "t": 0.72042,
+          "in_sample_sharpe": 0.450574,
+          "label": "consistent",
+          "rule": "net Sharpe with t = mean / (sd / sqrt(days)) of daily net excess; consistent if its sign matches the in-sample net Sharpe at the same cost"
+        },
+        {
+          "name": "futures month-end ZN, 1x",
+          "sharpe": 0.644652,
+          "t": 0.907142,
+          "in_sample_sharpe": 0.785267,
+          "label": "consistent",
+          "rule": "net Sharpe with t = mean / (sd / sqrt(days)) of daily net excess; consistent if its sign matches the in-sample net Sharpe at the same cost"
+        },
+        {
+          "name": "futures month-end ZN, 2x",
+          "sharpe": 0.546453,
+          "t": 0.768958,
+          "in_sample_sharpe": 0.706754,
+          "label": "consistent",
+          "rule": "net Sharpe with t = mean / (sd / sqrt(days)) of daily net excess; consistent if its sign matches the in-sample net Sharpe at the same cost"
+        },
+        {
+          "name": "futures supply leg, 1x",
+          "sharpe": 0.603599,
+          "t": 0.849374,
+          "in_sample_sharpe": 0.289016,
+          "label": "consistent",
+          "rule": "net Sharpe with t = mean / (sd / sqrt(days)) of daily net excess; consistent if its sign matches the in-sample net Sharpe at the same cost"
+        },
+        {
+          "name": "futures supply leg, 2x",
+          "sharpe": 0.368522,
+          "t": 0.518577,
+          "in_sample_sharpe": 0.0711606,
+          "label": "consistent",
+          "rule": "net Sharpe with t = mean / (sd / sqrt(days)) of daily net excess; consistent if its sign matches the in-sample net Sharpe at the same cost"
+        }
+      ],
+      "kill_conditions": [
+        {
+          "condition": "b <= 0",
+          "source": "HYPOTHESIS.md",
+          "met": false,
+          "numbers": {
+            "b": 0.875161
+          },
+          "rule": "met if H1 b <= 0"
+        },
+        {
+          "condition": "or centered on zero",
+          "source": "HYPOTHESIS.md",
+          "met": null,
+          "numbers": {
+            "b": 0.875161,
+            "t": 2.99193,
+            "ci": [
+              0.301858,
+              1.44847
+            ]
+          },
+          "rule": "no threshold is written; the numbers are reported for the team (as the futures kill condition, CLAUDE.md section 15)"
+        },
+        {
+          "condition": "no reversal",
+          "source": "HYPOTHESIS.md",
+          "met": false,
+          "numbers": {
+            "mean_R3_pct": -0.0232002,
+            "H3_coef": -0.234934
+          },
+          "rule": "met if the mean T..T+3 excess return R3 >= 0"
+        },
+        {
+          "condition": "forecast-sized <= calendar-only",
+          "source": "HYPOTHESIS.md",
+          "met": false,
+          "numbers": {
+            "sharpe_fc": 1.20279,
+            "sharpe_cal": 0.71139
+          },
+          "rule": "met if the net Sharpes compare so, 1x costs"
+        },
+        {
+          "condition": "effect only in the 1990s",
+          "source": "HYPOTHESIS.md",
+          "met": null,
+          "numbers": {},
+          "rule": "an in-sample condition; not applicable to the test window"
+        },
+        {
+          "condition": "vanishes at 2x costs",
+          "source": "HYPOTHESIS.md",
+          "met": null,
+          "numbers": {
+            "sharpe_fc_2x": 1.02479,
+            "sharpe_cal_2x": 0.51196
+          },
+          "rule": "no threshold is written; the numbers are reported for the team (as the futures kill condition, CLAUDE.md section 15)"
+        },
+        {
+          "condition": "the pre or post mean has the wrong sign in-sample",
+          "source": "PREREG_FLOWCLOCK.md",
+          "met": null,
+          "numbers": {},
+          "rule": "an in-sample condition; not applicable to the test window"
+        },
+        {
+          "condition": "the effect is absent in 2009-2024",
+          "source": "PREREG_FLOWCLOCK.md",
+          "met": null,
+          "numbers": {},
+          "rule": "an in-sample condition; not applicable to the test window"
+        },
+        {
+          "condition": "the Flow Clock book does not beat the demand leg alone, net of costs",
+          "source": "PREREG_FLOWCLOCK.md",
+          "met": true,
+          "numbers": {
+            "sharpe_book": -0.184942,
+            "sharpe_demand": 0.71139,
+            "sharpe_book_2x": -0.552817,
+            "sharpe_demand_2x": 0.51196
+          },
+          "rule": "met if Sharpe(book) <= Sharpe(demand leg alone), 1x costs"
+        },
+        {
+          "condition": "it disappears at 2x costs",
+          "source": "PREREG_FLOWCLOCK.md",
+          "met": null,
+          "numbers": {
+            "sharpe_book_2x": -0.552817,
+            "sharpe_supply_cash_2x": -1.11309,
+            "sharpe_supply_futures_2x": 0.368522
+          },
+          "rule": "no threshold is written; the numbers are reported for the team (as the futures kill condition, CLAUDE.md section 15)"
+        }
+      ]
+    }
   },
   "flowclock": {
     "prereg": {
@@ -17867,7 +19579,620 @@
       "demand_engine_check_max_abs_diff": 0.0
     },
     "oos": {
-      "status": "test window runs once, after gate2-frozen"
+      "sample": [
+        "2024-10-01",
+        "2026-09-30"
+      ],
+      "H6": {
+        "n_events": 167,
+        "n_used": 167,
+        "n_skipped": 0,
+        "n_H6c": 167,
+        "n_no_zS": 0,
+        "sample": [
+          "2024-10-08",
+          "2026-09-23"
+        ],
+        "H6a": {
+          "n": 167,
+          "n_clusters": 72,
+          "b": -0.136679,
+          "se": 0.0994088,
+          "t": -1.37492,
+          "ci": [
+            -0.331517,
+            0.0581585
+          ],
+          "prediction": "mean < 0"
+        },
+        "H6b": {
+          "n": 167,
+          "n_clusters": 72,
+          "b": -0.0567814,
+          "se": 0.0766441,
+          "t": -0.740845,
+          "ci": [
+            -0.207001,
+            0.0934383
+          ],
+          "prediction": "mean > 0"
+        },
+        "H6c": {
+          "b": -0.161191,
+          "se": 0.213996,
+          "t": -0.753243,
+          "ci": [
+            -0.580614,
+            0.258233
+          ],
+          "alpha": 0.0892434,
+          "n": 167,
+          "n_clusters": 72,
+          "prediction": "beta > 0"
+        },
+        "long_short_mean": {
+          "n": 167,
+          "n_clusters": 72,
+          "b": 0.0798978,
+          "se": 0.11826,
+          "t": 0.675613,
+          "ci": [
+            -0.151887,
+            0.311682
+          ]
+        },
+        "yield_bp": {
+          "dy_pre": {
+            "n": 167,
+            "n_clusters": 72,
+            "b": 0.754491,
+            "se": 1.25806,
+            "t": 0.599724,
+            "ci": [
+              -1.71127,
+              3.22025
+            ]
+          },
+          "dy_post": {
+            "n": 167,
+            "n_clusters": 72,
+            "b": 1.4491,
+            "se": 1.13414,
+            "t": 1.27771,
+            "ci": [
+              -0.773778,
+              3.67198
+            ]
+          },
+          "H6c": {
+            "b": -0.985114,
+            "se": 1.87667,
+            "t": -0.524925,
+            "ci": [
+              -4.66333,
+              2.6931
+            ],
+            "n": 167
+          }
+        },
+        "by_tenor": {
+          "DGS10": {
+            "n": 24,
+            "R_pre": {
+              "n": 24,
+              "n_clusters": 24,
+              "b": -0.349956,
+              "se": 0.1689,
+              "t": -2.07197,
+              "ci": [
+                -0.680994,
+                -0.0189182
+              ]
+            },
+            "R_post": {
+              "n": 24,
+              "n_clusters": 24,
+              "b": -0.279165,
+              "se": 0.177816,
+              "t": -1.56997,
+              "ci": [
+                -0.627677,
+                0.0693475
+              ]
+            },
+            "dy_pre_bp": 4.45833,
+            "dy_post_bp": 3.625
+          },
+          "DGS2": {
+            "n": 23,
+            "R_pre": {
+              "n": 23,
+              "n_clusters": 23,
+              "b": 0.0330044,
+              "se": 0.039751,
+              "t": 0.83028,
+              "ci": [
+                -0.044906,
+                0.110915
+              ]
+            },
+            "R_post": {
+              "n": 23,
+              "n_clusters": 23,
+              "b": -0.0244212,
+              "se": 0.043074,
+              "t": -0.566958,
+              "ci": [
+                -0.108845,
+                0.0600023
+              ]
+            },
+            "dy_pre_bp": -1.78261,
+            "dy_post_bp": 1.21739
+          },
+          "DGS20": {
+            "n": 24,
+            "R_pre": {
+              "n": 24,
+              "n_clusters": 24,
+              "b": -0.134593,
+              "se": 0.249989,
+              "t": -0.538397,
+              "ci": [
+                -0.624563,
+                0.355376
+              ]
+            },
+            "R_post": {
+              "n": 24,
+              "n_clusters": 24,
+              "b": 0.247975,
+              "se": 0.256446,
+              "t": 0.966966,
+              "ci": [
+                -0.254651,
+                0.7506
+              ]
+            },
+            "dy_pre_bp": 1.20833,
+            "dy_post_bp": -1.79167
+          },
+          "DGS3": {
+            "n": 24,
+            "R_pre": {
+              "n": 24,
+              "n_clusters": 24,
+              "b": -0.0274812,
+              "se": 0.0649016,
+              "t": -0.423429,
+              "ci": [
+                -0.154686,
+                0.0997235
+              ]
+            },
+            "R_post": {
+              "n": 24,
+              "n_clusters": 24,
+              "b": -0.180485,
+              "se": 0.0574542,
+              "t": -3.14137,
+              "ci": [
+                -0.293093,
+                -0.0678766
+              ]
+            },
+            "dy_pre_bp": 0.916667,
+            "dy_post_bp": 6.41667
+          },
+          "DGS30": {
+            "n": 24,
+            "R_pre": {
+              "n": 24,
+              "n_clusters": 24,
+              "b": -0.753741,
+              "se": 0.389795,
+              "t": -1.93369,
+              "ci": [
+                -1.51773,
+                0.0102431
+              ]
+            },
+            "R_post": {
+              "n": 24,
+              "n_clusters": 24,
+              "b": -0.2164,
+              "se": 0.230742,
+              "t": -0.937844,
+              "ci": [
+                -0.668646,
+                0.235846
+              ]
+            },
+            "dy_pre_bp": 4.875,
+            "dy_post_bp": 1.5
+          },
+          "DGS5": {
+            "n": 24,
+            "R_pre": {
+              "n": 24,
+              "n_clusters": 23,
+              "b": -0.0124002,
+              "se": 0.0858772,
+              "t": -0.144395,
+              "ci": [
+                -0.180716,
+                0.155916
+              ]
+            },
+            "R_post": {
+              "n": 24,
+              "n_clusters": 23,
+              "b": 0.00427854,
+              "se": 0.0969926,
+              "t": 0.0441121,
+              "ci": [
+                -0.185823,
+                0.194381
+              ]
+            },
+            "dy_pre_bp": 0.333333,
+            "dy_post_bp": -0.0416667
+          },
+          "DGS7": {
+            "n": 24,
+            "R_pre": {
+              "n": 24,
+              "n_clusters": 23,
+              "b": 0.295483,
+              "se": 0.172666,
+              "t": 1.7113,
+              "ci": [
+                -0.0429367,
+                0.633903
+              ]
+            },
+            "R_post": {
+              "n": 24,
+              "n_clusters": 23,
+              "b": 0.0520956,
+              "se": 0.137761,
+              "t": 0.37816,
+              "ci": [
+                -0.217911,
+                0.322102
+              ]
+            },
+            "dy_pre_bp": -4.83333,
+            "dy_post_bp": -0.791667
+          }
+        },
+        "units": "R: tenor's constant-maturity excess return over the window, %; dy: yield change, bp; zS: size known at A-5, sd of the 6 prior same-tenor amounts; SEs clustered by calendar week of A"
+      },
+      "H7": {
+        "c": {
+          "b": -0.24584,
+          "se": 0.111244,
+          "t": -2.20992,
+          "ci": [
+            -0.463874,
+            -0.0278066
+          ]
+        },
+        "a": {
+          "b": 0.498154,
+          "se": 0.149598,
+          "t": 3.32996,
+          "ci": [
+            0.204948,
+            0.79136
+          ]
+        },
+        "n": 24,
+        "yield_bp": {
+          "c": {
+            "b": -3.10138,
+            "se": 1.39078,
+            "t": -2.22996,
+            "ci": [
+              -5.82725,
+              -0.375503
+            ]
+          },
+          "a": {
+            "b": 6.12883,
+            "se": 1.86595,
+            "t": 3.28456,
+            "ci": [
+              2.47164,
+              9.78602
+            ]
+          }
+        },
+        "sample": [
+          "2024-10",
+          "2026-09"
+        ],
+        "prediction": "c > 0 and a > 0",
+        "units": "R_m: 10-year T-4..T excess return, %; zA: sd of SA_m (past months only)"
+      },
+      "headline3": {
+        "cost_1x": {
+          "sharpe_book": -0.184942,
+          "sharpe_demand": 0.71139,
+          "diff": -0.896332,
+          "ci": [
+            -2.28317,
+            0.45143
+          ],
+          "p_le_0": 0.9079,
+          "n_months": 24,
+          "n_boot": 10000,
+          "seed": 7
+        },
+        "cost_2x": {
+          "sharpe_book": -0.552817,
+          "sharpe_demand": 0.51196,
+          "diff": -1.06478,
+          "ci": [
+            -2.54935,
+            0.360476
+          ],
+          "p_le_0": 0.9277,
+          "n_months": 24,
+          "n_boot": 10000,
+          "seed": 7
+        }
+      },
+      "supply_size_vs_calendar": {
+        "sharpe_size_weighted": -0.492312,
+        "sharpe_calendar": -0.678298,
+        "diff": 0.185987,
+        "ci": [
+          -0.755616,
+          1.23251
+        ],
+        "p_le_0": 0.3665,
+        "n_months": 24,
+        "n_boot": 10000,
+        "seed": 7
+      },
+      "corr_daily_supply_vs_demand": 0.178144,
+      "metrics": {
+        "supply_calendar": {
+          "period": [
+            "2024-10-01",
+            "2026-09-30"
+          ],
+          "years": 1.99863,
+          "ann_return_pct": 1.99958,
+          "ann_excess_return_pct": -1.96308,
+          "vol_pct": 2.88869,
+          "sharpe": -0.678298,
+          "sharpe_gross": -0.170554,
+          "max_drawdown_pct": 4.82935,
+          "max_drawdown_excess_pct": 7.84898,
+          "turnover_x_per_year": 121.886,
+          "hit_rate": 0.45509,
+          "hit_unit": "event",
+          "n_units": 167,
+          "worst_unit": {
+            "id": "2025-11-26_91282CPM7",
+            "net_pnl_pct": -0.763818
+          },
+          "mean_unit_net_pnl_pct": -0.023233,
+          "cost_pct_per_year": 1.454,
+          "n_legs": 334,
+          "legs_by_kind": {
+            "post": 167,
+            "pre": 167
+          },
+          "share_days_invested": 0.995992,
+          "mean_gross_notional_x_capital": 1.22538,
+          "max_gross_notional_x_capital": 3.0,
+          "n_legs_capped": 4,
+          "n_fomc_halved": 65,
+          "n_drawdown_halved": 110
+        },
+        "supply_size_weighted": {
+          "period": [
+            "2024-10-01",
+            "2026-09-30"
+          ],
+          "years": 1.99863,
+          "ann_return_pct": 2.46552,
+          "ann_excess_return_pct": -1.51538,
+          "vol_pct": 3.03696,
+          "sharpe": -0.492312,
+          "sharpe_gross": -0.0408944,
+          "max_drawdown_pct": 5.34354,
+          "max_drawdown_excess_pct": 8.45579,
+          "turnover_x_per_year": 114.798,
+          "hit_rate": 0.467066,
+          "hit_unit": "event",
+          "n_units": 167,
+          "worst_unit": {
+            "id": "2025-09-10_91282CNT4",
+            "net_pnl_pct": -0.925771
+          },
+          "mean_unit_net_pnl_pct": -0.0177281,
+          "cost_pct_per_year": 1.35819,
+          "n_legs": 334,
+          "legs_by_kind": {
+            "post": 167,
+            "pre": 167
+          },
+          "share_days_invested": 0.995992,
+          "mean_gross_notional_x_capital": 1.15412,
+          "max_gross_notional_x_capital": 3.0,
+          "n_legs_capped": 4,
+          "n_fomc_halved": 65,
+          "n_drawdown_halved": 137
+        },
+        "book": {
+          "period": [
+            "2024-10-01",
+            "2026-09-30"
+          ],
+          "years": 1.99863,
+          "ann_return_pct": 3.10866,
+          "ann_excess_return_pct": -0.896519,
+          "vol_pct": 4.39429,
+          "sharpe": -0.184942,
+          "sharpe_gross": 0.305272,
+          "max_drawdown_pct": 6.1876,
+          "max_drawdown_excess_pct": 10.548,
+          "turnover_x_per_year": 162.604,
+          "hit_rate": 0.375,
+          "hit_unit": "month",
+          "n_units": 24,
+          "worst_unit": {
+            "id": "2025-01",
+            "net_pnl_pct": -1.76976
+          },
+          "mean_unit_net_pnl_pct": -0.0670522,
+          "cost_pct_per_year": 2.13194,
+          "n_legs": 358,
+          "legs_by_kind": {
+            "demand": 24,
+            "post": 167,
+            "pre": 167
+          },
+          "share_days_invested": 0.995992,
+          "mean_gross_notional_x_capital": 1.59256,
+          "max_gross_notional_x_capital": 3.0,
+          "n_legs_capped": 40,
+          "n_fomc_halved": 71,
+          "n_drawdown_halved": 12
+        },
+        "supply_calendar_cost_2x": {
+          "period": [
+            "2024-10-01",
+            "2026-09-30"
+          ],
+          "years": 1.99863,
+          "ann_return_pct": 0.791905,
+          "ann_excess_return_pct": -3.124,
+          "vol_pct": 2.8416,
+          "sharpe": -1.11309,
+          "sharpe_gross": -0.14633,
+          "max_drawdown_pct": 5.59706,
+          "max_drawdown_excess_pct": 9.11184,
+          "turnover_x_per_year": 114.981,
+          "hit_rate": 0.437126,
+          "hit_unit": "event",
+          "n_units": 167,
+          "worst_unit": {
+            "id": "2025-11-26_91282CPM7",
+            "net_pnl_pct": -0.791167
+          },
+          "mean_unit_net_pnl_pct": -0.0375039,
+          "cost_pct_per_year": 2.72334,
+          "n_legs": 334,
+          "legs_by_kind": {
+            "post": 167,
+            "pre": 167
+          },
+          "share_days_invested": 0.995992,
+          "mean_gross_notional_x_capital": 1.15596,
+          "max_gross_notional_x_capital": 3.0,
+          "n_legs_capped": 2,
+          "n_fomc_halved": 65,
+          "n_drawdown_halved": 137
+        },
+        "book_cost_2x": {
+          "period": [
+            "2024-10-01",
+            "2026-09-30"
+          ],
+          "years": 1.99863,
+          "ann_return_pct": 1.73883,
+          "ann_excess_return_pct": -2.21326,
+          "vol_pct": 3.94582,
+          "sharpe": -0.552817,
+          "sharpe_gross": 0.402154,
+          "max_drawdown_pct": 7.32186,
+          "max_drawdown_excess_pct": 11.757,
+          "turnover_x_per_year": 141.694,
+          "hit_rate": 0.333333,
+          "hit_unit": "month",
+          "n_units": 24,
+          "worst_unit": {
+            "id": "2025-01",
+            "net_pnl_pct": -1.89473
+          },
+          "mean_unit_net_pnl_pct": -0.179973,
+          "cost_pct_per_year": 3.72811,
+          "n_legs": 358,
+          "legs_by_kind": {
+            "demand": 24,
+            "post": 167,
+            "pre": 167
+          },
+          "share_days_invested": 0.995992,
+          "mean_gross_notional_x_capital": 1.38528,
+          "max_gross_notional_x_capital": 3.0,
+          "n_legs_capped": 31,
+          "n_fomc_halved": 71,
+          "n_drawdown_halved": 106
+        },
+        "demand_alone": {
+          "period": [
+            "2024-10-01",
+            "2026-09-30"
+          ],
+          "years": 1.99863,
+          "ann_return_pct": 6.12735,
+          "ann_excess_return_pct": 2.0058,
+          "vol_pct": 2.87569,
+          "sharpe": 0.71139,
+          "sharpe_gross": 0.910236,
+          "max_drawdown_pct": 2.8474,
+          "max_drawdown_excess_pct": 3.78162,
+          "turnover_x_per_year": 28.1267,
+          "hit_rate": 0.541667,
+          "worst_window": {
+            "month": "2026-08",
+            "net_pnl_pct": -1.31634
+          },
+          "n_windows": 24,
+          "mean_window_net_pnl_pct": 0.168787,
+          "cost_pct_per_year": 0.564967,
+          "mean_notional_x_capital": 1.17114,
+          "n_notional_capped": 0,
+          "n_fomc_halved": 6,
+          "n_drawdown_halved": 0
+        },
+        "demand_alone_cost_2x": {
+          "period": [
+            "2024-10-01",
+            "2026-09-30"
+          ],
+          "years": 1.99863,
+          "ann_return_pct": 5.52939,
+          "ann_excess_return_pct": 1.43098,
+          "vol_pct": 2.88206,
+          "sharpe": 0.51196,
+          "sharpe_gross": 0.910236,
+          "max_drawdown_pct": 3.01298,
+          "max_drawdown_excess_pct": 3.94563,
+          "turnover_x_per_year": 28.1267,
+          "hit_rate": 0.541667,
+          "worst_window": {
+            "month": "2026-08",
+            "net_pnl_pct": -1.37475
+          },
+          "n_windows": 24,
+          "mean_window_net_pnl_pct": 0.121739,
+          "cost_pct_per_year": 1.12993,
+          "mean_notional_x_capital": 1.17114,
+          "n_notional_capped": 0,
+          "n_fomc_halved": 6,
+          "n_drawdown_halved": 0
+        }
+      },
+      "demand_engine_check_max_abs_diff": 0.0,
+      "n_events": 167,
+      "n_events_traded": 167
     }
   },
   "figures": {
@@ -17898,10 +20223,14 @@
     "auction_event_path": {
       "path": "outputs/figures/auction_event_path.png",
       "caption": "From A-5 to A the excess return path moves -0.200% for auctions large vs recent ones and -0.067% for small ones; from A to A+5 it moves +0.263% and -0.002% (means, 95% bands clustered by week, 1993-01 to 2024-09)."
+    },
+    "equity_curve_oos": {
+      "path": "outputs/figures/equity_curve_oos.png",
+      "caption": "Test window, growth of 1 in excess of T-bills, net of costs: forecast-sized 1.08x (Sharpe 1.20); calendar-only 1.04x (Sharpe 0.71); Flow Clock book 0.98x (Sharpe -0.18); curve-allocated 1.04x (Sharpe 0.73) (2024-10 to 2026-09). Futures: calendar-only, ZN futures 1.04x (Sharpe 0.64); supply leg, futures 1.04x (Sharpe 0.60)."
     }
   },
   "trials": {
-    "count": 3115,
+    "count": 3129,
     "total_logged_runs": 3115,
     "distinct_variants": 519,
     "n_configs_with_differing_sharpes": 0,
@@ -19626,6 +21955,467 @@
       "legs": "outputs/tables/futures_legs_insample.csv",
       "daily": "outputs/tables/futures_daily_insample.csv",
       "checks": "outputs/tables/futures_data_checks_insample.json"
+    },
+    "oos": {
+      "sample": [
+        "2024-10-01",
+        "2026-09-30"
+      ],
+      "contracts": {
+        "month_end": "ZN",
+        "supply": {
+          "DGS2": "ZT",
+          "DGS3": "ZT",
+          "DGS5": "ZF",
+          "DGS7": "ZN",
+          "DGS10": "TN",
+          "DGS20": "ZB",
+          "DGS30": "UB"
+        },
+        "fallback": {
+          "TN": "ZN",
+          "UB": "ZB"
+        }
+      },
+      "data": {
+        "source": "Databento GLBX.MDP3: statistics (settlement), ohlcv-1d (volume), definition (monthly snapshots); rows through the split from the in-sample cache",
+        "trade_dates": [
+          "2010-06-04",
+          "2026-09-30"
+        ],
+        "n_definition_snapshots": 200,
+        "first_sizable_entry_used": {
+          "month_end": {
+            "ZN": "2010-08-25"
+          },
+          "supply": {
+            "ZT": "2010-08-17",
+            "TN": "2016-04-06",
+            "UB": "2010-09-01",
+            "ZF": "2010-08-18",
+            "ZN": "2010-08-19",
+            "ZB": "2020-05-13"
+          }
+        },
+        "first_sizable_entry_found_on_window_legs": {
+          "month_end": {
+            "ZN": "2024-10-25"
+          },
+          "supply": {
+            "ZT": "2024-10-01",
+            "TN": "2024-10-02",
+            "UB": "2024-10-03",
+            "ZB": "2024-10-16",
+            "ZF": "2024-10-21",
+            "ZN": "2024-10-22"
+          }
+        },
+        "bond_days_without_any_settlement": {
+          "TN": [],
+          "UB": [],
+          "ZB": [],
+          "ZF": [],
+          "ZN": [],
+          "ZT": []
+        }
+      },
+      "month_end_zn": {
+        "metrics": {
+          "period": [
+            "2024-10-01",
+            "2026-09-30"
+          ],
+          "years": 1.99863,
+          "ann_return_pct": 6.01899,
+          "ann_excess_return_pct": 1.90152,
+          "vol_pct": 3.01982,
+          "sharpe": 0.644652,
+          "sharpe_gross": 0.742754,
+          "max_drawdown_pct": 3.15891,
+          "max_drawdown_excess_pct": 4.11913,
+          "turnover_x_per_year": 36.9753,
+          "hit_rate": 0.541667,
+          "worst_window": {
+            "month": "2026-08",
+            "net_pnl_pct": -1.86384
+          },
+          "n_windows": 24,
+          "mean_window_net_pnl_pct": 0.160618,
+          "cost_pct_per_year": 0.292158,
+          "mean_notional_x_capital": 1.5375,
+          "n_notional_capped": 0,
+          "n_fomc_halved": 6,
+          "n_drawdown_halved": 0,
+          "max_notional_x_capital": 2.6,
+          "notional_rounding_usd": 1000000.0
+        },
+        "metrics_cost_2x": {
+          "period": [
+            "2024-10-01",
+            "2026-09-30"
+          ],
+          "years": 1.99863,
+          "ann_return_pct": 5.70967,
+          "ann_excess_return_pct": 1.60417,
+          "vol_pct": 3.02285,
+          "sharpe": 0.546453,
+          "sharpe_gross": 0.742754,
+          "max_drawdown_pct": 3.25059,
+          "max_drawdown_excess_pct": 4.20992,
+          "turnover_x_per_year": 36.9753,
+          "hit_rate": 0.541667,
+          "worst_window": {
+            "month": "2026-08",
+            "net_pnl_pct": -1.89768
+          },
+          "n_windows": 24,
+          "mean_window_net_pnl_pct": 0.136288,
+          "cost_pct_per_year": 0.584316,
+          "mean_notional_x_capital": 1.5375,
+          "n_notional_capped": 0,
+          "n_fomc_halved": 6,
+          "n_drawdown_halved": 0,
+          "max_notional_x_capital": 2.6,
+          "notional_rounding_usd": 1000000.0
+        },
+        "legs": {
+          "n_legs": 24,
+          "n_traded": 24,
+          "status": {
+            "ok": 24
+          },
+          "by_product": {
+            "ZN": {
+              "n_legs": 24,
+              "n_fallback": 0,
+              "contracts_median": 137.0,
+              "dv01_contract_median": 69.1938,
+              "dv01_r2_median": 0.908466,
+              "dv01_r2_min": 0.8403,
+              "dv01_n_min": 60,
+              "tick_value_entry": [
+                15.625
+              ]
+            }
+          },
+          "by_tenor_product": {
+            "DGS10->ZN": 24
+          },
+          "n_contracts_capped": 0,
+          "realised_over_target_dv01": {
+            "median": 0.999939,
+            "p5": 0.997776,
+            "p95": 1.00508
+          },
+          "n_distinct_contracts": 9
+        },
+        "legs_cost_2x": {
+          "n_legs": 24,
+          "n_traded": 24,
+          "status": {
+            "ok": 24
+          },
+          "by_product": {
+            "ZN": {
+              "n_legs": 24,
+              "n_fallback": 0,
+              "contracts_median": 137.0,
+              "dv01_contract_median": 69.1938,
+              "dv01_r2_median": 0.908466,
+              "dv01_r2_min": 0.8403,
+              "dv01_n_min": 60,
+              "tick_value_entry": [
+                15.625
+              ]
+            }
+          },
+          "by_tenor_product": {
+            "DGS10->ZN": 24
+          },
+          "n_contracts_capped": 0,
+          "realised_over_target_dv01": {
+            "median": 0.999939,
+            "p5": 0.997776,
+            "p95": 1.00508
+          },
+          "n_distinct_contracts": 9
+        }
+      },
+      "supply_calendar": {
+        "metrics": {
+          "period": [
+            "2024-10-01",
+            "2026-09-30"
+          ],
+          "years": 1.99863,
+          "ann_return_pct": 6.15757,
+          "ann_excess_return_pct": 2.03407,
+          "vol_pct": 3.46667,
+          "sharpe": 0.603599,
+          "sharpe_gross": 0.838613,
+          "max_drawdown_pct": 2.64683,
+          "max_drawdown_excess_pct": 5.29926,
+          "turnover_x_per_year": 171.117,
+          "hit_rate": 0.508982,
+          "hit_unit": "event",
+          "n_units": 167,
+          "worst_unit": {
+            "id": "2025-11-26_91282CPM7",
+            "net_pnl_pct": -0.778262
+          },
+          "mean_unit_net_pnl_pct": 0.0247663,
+          "cost_pct_per_year": 0.807115,
+          "n_legs": 332,
+          "legs_by_kind": {
+            "post": 167,
+            "pre": 165
+          },
+          "share_days_invested": 0.995992,
+          "mean_gross_notional_x_capital": 1.74205,
+          "max_gross_notional_x_capital": 3.0,
+          "n_legs_capped": 20,
+          "n_fomc_halved": 65,
+          "n_drawdown_halved": 0,
+          "notional_rounding_usd": 1000000.0
+        },
+        "metrics_cost_2x": {
+          "period": [
+            "2024-10-01",
+            "2026-09-30"
+          ],
+          "years": 1.99863,
+          "ann_return_pct": 5.30435,
+          "ann_excess_return_pct": 1.21387,
+          "vol_pct": 3.46746,
+          "sharpe": 0.368522,
+          "sharpe_gross": 0.838613,
+          "max_drawdown_pct": 3.21754,
+          "max_drawdown_excess_pct": 5.89978,
+          "turnover_x_per_year": 171.117,
+          "hit_rate": 0.497006,
+          "hit_unit": "event",
+          "n_units": 167,
+          "worst_unit": {
+            "id": "2025-11-26_91282CPM7",
+            "net_pnl_pct": -0.793244
+          },
+          "mean_unit_net_pnl_pct": 0.0150623,
+          "cost_pct_per_year": 1.61423,
+          "n_legs": 332,
+          "legs_by_kind": {
+            "post": 167,
+            "pre": 165
+          },
+          "share_days_invested": 0.995992,
+          "mean_gross_notional_x_capital": 1.74205,
+          "max_gross_notional_x_capital": 3.0,
+          "n_legs_capped": 20,
+          "n_fomc_halved": 65,
+          "n_drawdown_halved": 0,
+          "notional_rounding_usd": 1000000.0
+        },
+        "legs": {
+          "n_legs": 334,
+          "n_traded": 332,
+          "status": {
+            "capped_to_zero": 2,
+            "ok": 332
+          },
+          "by_product": {
+            "TN": {
+              "n_legs": 47,
+              "n_fallback": 0,
+              "contracts_median": 24.0,
+              "dv01_contract_median": 87.9771,
+              "dv01_r2_median": 0.935543,
+              "dv01_r2_min": 0.864237,
+              "dv01_n_min": 60,
+              "tick_value_entry": [
+                15.625
+              ]
+            },
+            "UB": {
+              "n_legs": 48,
+              "n_fallback": 0,
+              "contracts_median": 12.0,
+              "dv01_contract_median": 186.812,
+              "dv01_r2_median": 0.933452,
+              "dv01_r2_min": 0.851663,
+              "dv01_n_min": 60,
+              "tick_value_entry": [
+                31.25
+              ]
+            },
+            "ZB": {
+              "n_legs": 48,
+              "n_fallback": 0,
+              "contracts_median": 15.0,
+              "dv01_contract_median": 141.039,
+              "dv01_r2_median": 0.935522,
+              "dv01_r2_min": 0.837733,
+              "dv01_n_min": 60,
+              "tick_value_entry": [
+                31.25
+              ]
+            },
+            "ZF": {
+              "n_legs": 48,
+              "n_fallback": 0,
+              "contracts_median": 48.0,
+              "dv01_contract_median": 42.2625,
+              "dv01_r2_median": 0.944272,
+              "dv01_r2_min": 0.901091,
+              "dv01_n_min": 60,
+              "tick_value_entry": [
+                7.8125
+              ]
+            },
+            "ZN": {
+              "n_legs": 48,
+              "n_fallback": 0,
+              "contracts_median": 31.0,
+              "dv01_contract_median": 65.1382,
+              "dv01_r2_median": 0.953122,
+              "dv01_r2_min": 0.902099,
+              "dv01_n_min": 60,
+              "tick_value_entry": [
+                15.625
+              ]
+            },
+            "ZT": {
+              "n_legs": 93,
+              "n_fallback": 0,
+              "contracts_median": 55.0,
+              "dv01_contract_median": 36.0591,
+              "dv01_r2_median": 0.905839,
+              "dv01_r2_min": 0.815006,
+              "dv01_n_min": 60,
+              "tick_value_entry": [
+                7.8125
+              ]
+            }
+          },
+          "by_tenor_product": {
+            "DGS10->TN": 47,
+            "DGS2->ZT": 45,
+            "DGS20->ZB": 48,
+            "DGS3->ZT": 48,
+            "DGS30->UB": 48,
+            "DGS5->ZF": 48,
+            "DGS7->ZN": 48
+          },
+          "n_contracts_capped": 20,
+          "realised_over_target_dv01": {
+            "median": 0.998666,
+            "p5": 0.916779,
+            "p95": 1.03067
+          },
+          "n_distinct_contracts": 54
+        },
+        "legs_cost_2x": {
+          "n_legs": 334,
+          "n_traded": 332,
+          "status": {
+            "capped_to_zero": 2,
+            "ok": 332
+          },
+          "by_product": {
+            "TN": {
+              "n_legs": 47,
+              "n_fallback": 0,
+              "contracts_median": 24.0,
+              "dv01_contract_median": 87.9771,
+              "dv01_r2_median": 0.935543,
+              "dv01_r2_min": 0.864237,
+              "dv01_n_min": 60,
+              "tick_value_entry": [
+                15.625
+              ]
+            },
+            "UB": {
+              "n_legs": 48,
+              "n_fallback": 0,
+              "contracts_median": 12.0,
+              "dv01_contract_median": 186.812,
+              "dv01_r2_median": 0.933452,
+              "dv01_r2_min": 0.851663,
+              "dv01_n_min": 60,
+              "tick_value_entry": [
+                31.25
+              ]
+            },
+            "ZB": {
+              "n_legs": 48,
+              "n_fallback": 0,
+              "contracts_median": 15.0,
+              "dv01_contract_median": 141.039,
+              "dv01_r2_median": 0.935522,
+              "dv01_r2_min": 0.837733,
+              "dv01_n_min": 60,
+              "tick_value_entry": [
+                31.25
+              ]
+            },
+            "ZF": {
+              "n_legs": 48,
+              "n_fallback": 0,
+              "contracts_median": 48.0,
+              "dv01_contract_median": 42.2625,
+              "dv01_r2_median": 0.944272,
+              "dv01_r2_min": 0.901091,
+              "dv01_n_min": 60,
+              "tick_value_entry": [
+                7.8125
+              ]
+            },
+            "ZN": {
+              "n_legs": 48,
+              "n_fallback": 0,
+              "contracts_median": 31.0,
+              "dv01_contract_median": 65.1382,
+              "dv01_r2_median": 0.953122,
+              "dv01_r2_min": 0.902099,
+              "dv01_n_min": 60,
+              "tick_value_entry": [
+                15.625
+              ]
+            },
+            "ZT": {
+              "n_legs": 93,
+              "n_fallback": 0,
+              "contracts_median": 55.0,
+              "dv01_contract_median": 36.0591,
+              "dv01_r2_median": 0.905839,
+              "dv01_r2_min": 0.815006,
+              "dv01_n_min": 60,
+              "tick_value_entry": [
+                7.8125
+              ]
+            }
+          },
+          "by_tenor_product": {
+            "DGS10->TN": 47,
+            "DGS2->ZT": 45,
+            "DGS20->ZB": 48,
+            "DGS3->ZT": 48,
+            "DGS30->UB": 48,
+            "DGS5->ZF": 48,
+            "DGS7->ZN": 48
+          },
+          "n_contracts_capped": 20,
+          "realised_over_target_dv01": {
+            "median": 0.998666,
+            "p5": 0.916779,
+            "p95": 1.03067
+          },
+          "n_distinct_contracts": 54
+        }
+      },
+      "tables": {
+        "legs": "outputs/tables/futures_legs_oos.csv",
+        "daily": "outputs/tables/futures_daily_oos.csv",
+        "checks": "outputs/tables/futures_data_checks_oos.json"
+      }
     }
   },
   "cmt_switch_diagnostic": {
@@ -24782,7 +27572,170 @@
       }
     },
     "oos": {
-      "status": "test window runs once, after gate2-frozen (with the Gate 2 --oos run)"
+      "prediction": "c > 0, one-sided p < 0.05",
+      "model": "LS = a + b x zS_pre + c x zD; LS = R_post - R_pre (%), cash constant-maturity excess returns, before costs; SEs clustered by the Monday-Sunday week of A (CR1, normal); p = 1 - Phi(t_c)",
+      "c": {
+        "b": -0.0211205,
+        "se": 0.126519,
+        "t": -0.166936,
+        "ci": [
+          -0.269093,
+          0.226852
+        ],
+        "p_one_sided": 0.56629
+      },
+      "b_zS": {
+        "b": -0.154777,
+        "se": 0.211482,
+        "t": -0.731871,
+        "ci": [
+          -0.569274,
+          0.259719
+        ]
+      },
+      "a": {
+        "b": -0.0690976,
+        "se": 0.19241,
+        "t": -0.359116,
+        "ci": [
+          -0.446214,
+          0.308019
+        ]
+      },
+      "n": 101,
+      "n_clusters": 44,
+      "sample": [
+        "2025-07-23",
+        "2026-09-23"
+      ],
+      "pass": false,
+      "statement": "H8 fails: across 101 auctions from 2025-07-23 to 2026-09-23, a 1-sd higher primary dealer coupon position at A-5 goes with a -0.021 percentage-point change in the auction long-short return (t = -0.17, one-sided p = 0.566; pass needs c > 0 and p < 0.05).",
+      "secondary": {
+        "pre_leg": {
+          "c": {
+            "b": -0.0132483,
+            "se": 0.10813,
+            "t": -0.122522,
+            "ci": [
+              -0.225179,
+              0.198682
+            ],
+            "p_one_sided": 0.548757
+          },
+          "b_zS": {
+            "b": -0.0597379,
+            "se": 0.166947,
+            "t": -0.357827,
+            "ci": [
+              -0.386947,
+              0.267471
+            ]
+          },
+          "a": {
+            "b": 0.00101966,
+            "se": 0.139298,
+            "t": 0.00732,
+            "ci": [
+              -0.271999,
+              0.274038
+            ]
+          },
+          "n": 101,
+          "n_clusters": 44,
+          "sample": [
+            "2025-07-23",
+            "2026-09-23"
+          ],
+          "y": "-R_pre (the short pre leg's return, %)"
+        },
+        "post_leg": {
+          "c": {
+            "b": -0.00787213,
+            "se": 0.0722802,
+            "t": -0.108911,
+            "ci": [
+              -0.149539,
+              0.133795
+            ],
+            "p_one_sided": 0.543364
+          },
+          "b_zS": {
+            "b": -0.0950393,
+            "se": 0.124389,
+            "t": -0.764048,
+            "ci": [
+              -0.338838,
+              0.148759
+            ]
+          },
+          "a": {
+            "b": -0.0701173,
+            "se": 0.122081,
+            "t": -0.57435,
+            "ci": [
+              -0.309392,
+              0.169157
+            ]
+          },
+          "n": 101,
+          "n_clusters": 44,
+          "sample": [
+            "2025-07-23",
+            "2026-09-23"
+          ],
+          "y": "R_post (%)"
+        },
+        "by_decade": {
+          "1993-1999": {
+            "n": 0,
+            "n_clusters": 0,
+            "status": "too few events, weeks or distinct zD values for the regression"
+          },
+          "2000-2009": {
+            "n": 0,
+            "n_clusters": 0,
+            "status": "too few events, weeks or distinct zD values for the regression"
+          },
+          "2010-2019": {
+            "n": 0,
+            "n_clusters": 0,
+            "status": "too few events, weeks or distinct zD values for the regression"
+          },
+          "2020-2024": {
+            "n": 0,
+            "n_clusters": 0,
+            "status": "too few events, weeks or distinct zD values for the regression"
+          }
+        },
+        "note": "reported, not pass conditions; c_pre + c_post = c"
+      },
+      "events": {
+        "n_h6c": 167,
+        "n_used": 101,
+        "n_without_zD": {
+          "segment_short": 66
+        },
+        "by_segment_of_X0": {
+          "SBN2024": 101
+        },
+        "by_tenor": {
+          "DGS10": 14,
+          "DGS2": 14,
+          "DGS20": 15,
+          "DGS3": 14,
+          "DGS30": 14,
+          "DGS5": 16,
+          "DGS7": 14
+        }
+      },
+      "zD_used": {
+        "mean": 1.20065,
+        "sd": 0.959204,
+        "min": -0.752861,
+        "max": 3.0,
+        "share_clipped": 0.0792079,
+        "latest_asof_used": "2026-09-02"
+      }
     },
     "data": {
       "source": "NY Fed Markets Data API, primary dealer statistics (FR 2004A): net positions in Treasury coupons excluding TIPS, all maturities (sum of the maturity buckets of each series break)",

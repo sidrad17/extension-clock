@@ -1,0 +1,42 @@
+{
+  "source": "Databento GLBX.MDP3: statistics (settlement), ohlcv-1d (volume), definition (monthly snapshots); rows through the split from the in-sample cache",
+  "trade_dates": [
+    "2010-06-04",
+    "2026-09-30"
+  ],
+  "n_definition_snapshots": 200,
+  "first_sizable_entry_used": {
+    "month_end": {
+      "ZN": "2010-08-25"
+    },
+    "supply": {
+      "ZT": "2010-08-17",
+      "TN": "2016-04-06",
+      "UB": "2010-09-01",
+      "ZF": "2010-08-18",
+      "ZN": "2010-08-19",
+      "ZB": "2020-05-13"
+    }
+  },
+  "first_sizable_entry_found_on_window_legs": {
+    "month_end": {
+      "ZN": "2024-10-25"
+    },
+    "supply": {
+      "ZT": "2024-10-01",
+      "TN": "2024-10-02",
+      "UB": "2024-10-03",
+      "ZB": "2024-10-16",
+      "ZF": "2024-10-21",
+      "ZN": "2024-10-22"
+    }
+  },
+  "bond_days_without_any_settlement": {
+    "TN": [],
+    "UB": [],
+    "ZB": [],
+    "ZF": [],
+    "ZN": [],
+    "ZT": []
+  }
+}

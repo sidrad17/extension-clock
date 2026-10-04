@@ -1,0 +1,119 @@
+{
+  "end": "2026-09-30",
+  "files": {
+    "auctions.csv": {
+      "downloaded_utc": "2026-10-04T05:46:37Z",
+      "first": "2024-10-08",
+      "last": "2026-09-24",
+      "rows": 216,
+      "source": "Fiscal Data auctions_query",
+      "url": "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/od/auctions_query"
+    },
+    "fred_DGS1.csv": {
+      "downloaded_utc": "2026-10-04T05:46:35Z",
+      "first": "2024-10-01",
+      "last": "2026-09-30",
+      "rows": 522,
+      "source": "FRED DGS1",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS1"
+    },
+    "fred_DGS10.csv": {
+      "downloaded_utc": "2026-10-04T05:46:36Z",
+      "first": "2024-10-01",
+      "last": "2026-09-30",
+      "rows": 522,
+      "source": "FRED DGS10",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS10"
+    },
+    "fred_DGS2.csv": {
+      "downloaded_utc": "2026-10-04T05:46:35Z",
+      "first": "2024-10-01",
+      "last": "2026-09-30",
+      "rows": 522,
+      "source": "FRED DGS2",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS2"
+    },
+    "fred_DGS20.csv": {
+      "downloaded_utc": "2026-10-04T05:46:36Z",
+      "first": "2024-10-01",
+      "last": "2026-09-30",
+      "rows": 522,
+      "source": "FRED DGS20",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS20"
+    },
+    "fred_DGS3.csv": {
+      "downloaded_utc": "2026-10-04T05:46:35Z",
+      "first": "2024-10-01",
+      "last": "2026-09-30",
+      "rows": 522,
+      "source": "FRED DGS3",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS3"
+    },
+    "fred_DGS30.csv": {
+      "downloaded_utc": "2026-10-04T05:46:37Z",
+      "first": "2024-10-01",
+      "last": "2026-09-30",
+      "rows": 522,
+      "source": "FRED DGS30",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS30"
+    },
+    "fred_DGS5.csv": {
+      "downloaded_utc": "2026-10-04T05:46:36Z",
+      "first": "2024-10-01",
+      "last": "2026-09-30",
+      "rows": 522,
+      "source": "FRED DGS5",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS5"
+    },
+    "fred_DGS7.csv": {
+      "downloaded_utc": "2026-10-04T05:46:36Z",
+      "first": "2024-10-01",
+      "last": "2026-09-30",
+      "rows": 522,
+      "source": "FRED DGS7",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS7"
+    },
+    "fred_DTB3.csv": {
+      "downloaded_utc": "2026-10-04T05:46:37Z",
+      "first": "2024-10-01",
+      "last": "2026-09-30",
+      "rows": 522,
+      "source": "FRED DTB3",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DTB3"
+    },
+    "pd_treasury_positions.csv": {
+      "downloaded_utc": "2026-10-04T05:46:49Z",
+      "first": "2024-10-02",
+      "last": "2026-09-23",
+      "rows": 1456,
+      "source": "NY Fed Markets Data API, primary dealer positions",
+      "url": "https://markets.newyorkfed.org/api/pd/get/{keyid}.json"
+    },
+    "pension_pressure.csv": {
+      "downloaded_utc": "2026-10-04T05:46:51Z",
+      "first": "2024-10-01",
+      "last": "2026-08-31",
+      "rows": 480,
+      "source": "Ken French daily factors (derived)",
+      "url": "https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/F-F_Research_Data_Factors_daily_CSV.zip"
+    },
+    "soma_asof_dates.csv": {
+      "downloaded_utc": "2026-10-04T05:46:39Z",
+      "first": "2024-10-02",
+      "last": "2026-09-30",
+      "rows": 105,
+      "source": "NY Fed Markets Data API, SOMA as-of dates",
+      "url": "https://markets.newyorkfed.org/api/soma/asofdates/list.json"
+    },
+    "soma_notesbonds.csv": {
+      "downloaded_utc": "2026-10-04T05:46:39Z",
+      "first": "2024-10-16",
+      "last": "2026-09-23",
+      "rows": 18284,
+      "source": "NY Fed Markets Data API, SOMA notes and bonds by CUSIP",
+      "url": "https://markets.newyorkfed.org/api/soma/tsy/get/notesbonds/asof/{date}.json"
+    }
+  },
+  "note": "rows dated in (split, end] only; rows through the split come from data/snapshot/ (CLAUDE.md section 17)",
+  "split": "2024-09-30"
+}
