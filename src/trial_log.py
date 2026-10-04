@@ -30,6 +30,8 @@ GATE2_TAG = "gate2-frozen"
 PREREG_FILES = ["HYPOTHESIS.md", "config/settings.py"]
 FLOWCLOCK_TAG = "prereg-flowclock"
 FLOWCLOCK_FILES = ["PREREG_FLOWCLOCK.md", "PREREG_ADDENDUM.md", "HYPOTHESIS.md", "config/settings.py"]
+DEALERS_TAG = "prereg-dealers"
+DEALERS_FILES = ["PREREG_DEALERS.md", *FLOWCLOCK_FILES]
 
 
 class GateError(RuntimeError):
@@ -89,6 +91,21 @@ def assert_flowclock_prereg() -> None:
         raise GateError(f"Flow Clock: tag {FLOWCLOCK_TAG!r} not found; no auction-window return before it.")
     if _flowclock_changed():
         raise GateError(f"Flow Clock: {', '.join(FLOWCLOCK_FILES)} differ from {FLOWCLOCK_TAG}; they are locked.")
+
+
+def _dealers_changed() -> bool:
+    return bool(_git("diff", DEALERS_TAG, "--", *DEALERS_FILES).strip())
+
+
+def assert_dealers_prereg() -> None:
+    """PREREG_DEALERS.md (H8): no dealer-position data downloaded or read before the prereg-dealers tag; the
+    pre-registration files (that file and FLOWCLOCK_FILES) unchanged since the tag."""
+    if not dev_mode():
+        return
+    if DEALERS_TAG not in _tags():
+        raise GateError(f"H8: tag {DEALERS_TAG!r} not found; no dealer-position data before it.")
+    if _dealers_changed():
+        raise GateError(f"H8: {', '.join(DEALERS_FILES)} differ from {DEALERS_TAG}; they are locked.")
 
 
 def assert_gate2() -> None:

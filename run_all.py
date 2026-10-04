@@ -17,6 +17,8 @@ results.json; with neither, the futures block is skipped with a message.
 Phase 4d adds the CMT switch diagnostic (src/cmt_switch.py, descriptive): cash vs futures supply-leg P&L by day
 around auctions (computed in the --futures build, aggregates only) and the cash reopening control
 (results.json["cmt_switch_diagnostic"]).
+H8 (PREREG_DEALERS.md, src/dealers.py) tests whether the auction effect is larger when primary dealers hold more
+Treasury coupons (results.json["H8"]); the dealer positions are read only with the prereg-dealers tag (GQH_DEV=1).
 Trials are appended to runs/trials.csv only with GQH_DEV=1; results.json reads the counts and the Deflated Sharpe's
 inputs from that log, so a run without GQH_DEV reproduces the committed numbers (src/trial_log.py). The headline
 Deflated Sharpe uses N = distinct variants (distinct config_hash); the one at N = every logged row is reported beside
@@ -36,6 +38,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
+import config.dealers as dcs  # noqa: E402
 import config.flowclock as fcs  # noqa: E402
 import config.costs as fcost  # noqa: E402
 import config.futures as fus  # noqa: E402
@@ -46,13 +49,14 @@ from config.settings import (COST_STRESS, ENTRY_OFFSET, EXIT_OFFSET, FUT_START, 
 from src import figures, report  # noqa: E402
 from src import futures as fut  # noqa: E402
 from src.data import databento_futures as dbf  # noqa: E402
+from src.data import pd_positions  # noqa: E402
 from src.auction_events import build_events, in_sample_mask, month_end_supply  # noqa: E402
 from src.backtest import (month_end_windows, placebo_windows, reversal_windows, run_curve_allocated,  # noqa: E402
                           run_strategy, window_returns, window_yield_change_bp)
 from src.bonds import KNOT_YEARS, load_curve  # noqa: E402
 from src.calendar import load_calendar  # noqa: E402
 from src.capacity import capacity_curve  # noqa: E402
-from src import cmt_switch  # noqa: E402
+from src import cmt_switch, dealers  # noqa: E402
 from src.data.auctions import load_auctions  # noqa: E402
 from src.data.fomc import load_fomc_dates  # noqa: E402
 from src.data.fred import load_frame  # noqa: E402
@@ -74,8 +78,8 @@ from src.tests_h import (event_path_summary, event_paths, h1, h1_addendum, h1_co
 from src.trial_log import (assert_flowclock_prereg, assert_gate1, git_state, log_trial, log_trials,  # noqa: E402
                            read_trials, trial_count, trial_counts, trial_row)
 
-VERSION = "v5 (Phase 4d: in-sample; cash and futures; month-end leg and Flow Clock; CMT switch diagnostic)"
-PENDING = ["oos and flowclock.oos (Gate 2 only)",
+VERSION = "v6 (H8: in-sample; cash and futures; month-end leg, Flow Clock, CMT switch diagnostic, H8 dealer test)"
+PENDING = ["oos, flowclock.oos and H8.oos (Gate 2 only)",
            "in_sample.tips_replication (Phase 6)", "figure 5: test window added and shaded (Gate 2)"]
 FUT_TABLES = {"legs": "futures_legs_insample.csv", "daily": "futures_daily_insample.csv",
               "checks": "futures_data_checks_insample.json"}
@@ -298,6 +302,7 @@ def insample(futures_mode: str = "tables") -> None:
     else:
         res["futures"] = {"status": "skipped: no committed derived futures tables and no --futures run"}
     res["cmt_switch_diagnostic"] = cmt_block(fc_block.pop("_cmt_switch"), cmt_fut)
+    res["H8"] = fc_block.pop("_h8")
     res["costs"] = report.cost_block(load_frame(list(fcost.FLEMING_2003["spread_32nds"]), end=IS_END, index=cal.days,
                                                 fill=True))
     res["trials"] = {"count": trial_count(), "total_logged_runs": tc["total_logged_runs"],
@@ -769,8 +774,18 @@ def flowclock(cal, is_months, win, R, Y, demand, me_common: dict, git: dict, t0:
                 "supply_leg row, so distinct variants and the Deflated Sharpe's V are unchanged; "
                 "results.json[cmt_switch_diagnostic]"}, git=git)
     step("Flow Clock Phase 4d: reopening control, cash engine check; logged 1 descriptive row", t0)
+    # H8 (PREREG_DEALERS.md): dealer balance sheets; an explanation test, not a strategy (one trial row, no Sharpe)
+    h8b = h8_block(ev, ins, cal)
+    r8 = h8b["in_sample"]
+    log_trial({**fc_cfg, "test": "H8", "dealers": {k: getattr(dcs, k) for k in dir(dcs) if k.isupper()},
+               "series": pd_positions.COUPON_KEYS}, "in_sample_h8", {
+        "strategy": "h8_dealers", "tenor": "DGS2-DGS30", "entry": "A-5", "exit": "A+5", "n": r8["n"],
+        "H1_b": r8["c"]["b"], "H1_lo": r8["c"]["ci"][0], "H1_hi": r8["c"]["ci"][1], "sharpe_fc": "", "sharpe_cal": "",
+        "note": "run_all H8 (PREREG_DEALERS.md): LS on zS_pre and zD (dealer coupon positions known at A-5), week "
+                "clusters; H1_* = c and its 95% CI; explanation test, not a strategy (Sharpe columns blank)"}, git=git)
+    step(f"H8: c = {r8['c']['b']:.4f} (t {r8['c']['t']:.2f}), {r8['n']} events; logged 1 row", t0)
     block = {"prereg": {"file": "PREREG_FLOWCLOCK.md", "tag": "prereg-flowclock", "commit": "8c41154"},
-             **blocks, "oos": {"status": "test window runs once, after gate2-frozen"}, "_cmt_switch": cmt,
+             **blocks, "oos": {"status": "test window runs once, after gate2-frozen"}, "_cmt_switch": cmt, "_h8": h8b,
              "_supply_calendar_daily": sup_is.daily["excess"],
              "_supply_calendar_gross_daily": sup_is.daily["excess"] + sup_is.daily["cost"] / sup_is.cfg.capital}
     return block, {"path": "outputs/figures/auction_event_path.png", "caption": cap}, b_is["book"]
@@ -785,6 +800,31 @@ def cmt_cash(ev: pd.DataFrame, auctions: pd.DataFrame, ins: pd.Series, supply_bo
                                      "n_in_sample_disagree_with_fiscal_data_flag": int(
                                          (reopen[ins] != ev.loc[ins, "reopening"].astype(bool)).sum())},
             "cash_check": cmt_switch.cash_check(supply_book.legs, xs, cal)}
+
+
+def h8_block(ev: pd.DataFrame, ins: pd.Series, cal) -> dict:
+    """results.json["H8"] (PREREG_DEALERS.md; src/dealers.py, src/data/pd_positions.py): zD known at each in-sample
+    event's A-5 from the committed dealer-position snapshot (as-of dates <= IS_END; the loader is gated by the
+    prereg-dealers tag), then H8 on the H6c events."""
+    weekly = pd_positions.load_positions(end=IS_END)
+    checks = dict(weekly.attrs.get("checks", {}))
+    e = ev[ins]
+    zd = dealers.zd_at(pd.DatetimeIndex(sorted(e["pre_entry"].dropna().unique())), weekly, cal)
+    return {
+        "prereg": {"file": "PREREG_DEALERS.md", "tag": "prereg-dealers", "commit": "15f67bc"},
+        "in_sample": dealers.h8(e, zd),
+        "oos": {"status": "test window runs once, after gate2-frozen (with the Gate 2 --oos run)"},
+        "data": {"source": "NY Fed Markets Data API, primary dealer statistics (FR 2004A): net positions in Treasury "
+                           "coupons excluding TIPS, all maturities (sum of the maturity buckets of each series break)",
+                 "snapshot": f"data/snapshot/{pd_positions.SNAPSHOT_NAME}", "keys": pd_positions.COUPON_KEYS,
+                 "series_breaks": {sb: [lo, hi] for sb, lo, hi in pd_positions.SERIES_BREAKS},
+                 "checks_buckets_sum_to_published_total": checks,
+                 "n_releases_through_is_end_by_segment": {k: int(v) for k, v in
+                                                          weekly["segment"].value_counts().sort_index().items()},
+                 "publication_rule": f"first bond business day on or after as-of + {dcs.RELEASE_LAG_DAYS} days; known "
+                                     "at the close of X only if published before X (NY Fed posts Thursdays ~4:15 PM "
+                                     "ET)"},
+    }
 
 
 def cmt_block(cash_part: dict, fut_part: dict) -> dict:

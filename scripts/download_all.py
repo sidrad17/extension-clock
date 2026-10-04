@@ -1,9 +1,10 @@
 """Refresh the public-data snapshot and rewrite checksums (CLAUDE.md 7.1).
 
-Usage: python scripts/download_all.py [--only soma|pd]
+Usage: python scripts/download_all.py [--only soma|pd|pdpos]
 Downloads Fiscal Data auctions, FRED yields (CURVE_KNOTS + DTB3), MSPD table 1, the Ken French daily factors,
-the NY Fed SOMA holdings by CUSIP and the NY Fed primary dealer transactions in the 10-year bucket (`--only soma`
-or `--only pd` refreshes just those files; soma needs the FRED snapshot for the bond calendar);
+the NY Fed SOMA holdings by CUSIP, the NY Fed primary dealer transactions in the 10-year bucket and the primary
+dealer net positions in Treasury coupons for H8 (`--only soma`, `--only pd` or `--only pdpos` refreshes just those
+files; soma needs the FRED snapshot for the bond calendar; pdpos needs the prereg-dealers tag with GQH_DEV=1);
 writes data/snapshot/*.csv (public data as published; Ken French only as the derived pension_pressure.csv, raw zip
 kept in git-ignored data/cache/), updates vintage.json / VINTAGE.md and rewrites CHECKSUMS.sha256 (which also
 covers config/fomc_dates.csv; refresh that one with scripts/fetch_fomc.py). Normal runs never call this: they
@@ -20,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import requests  # noqa: E402
 
 from src.calendar import load_calendar  # noqa: E402
-from src.data import auctions, french, fred, mspd, pd_volume, soma  # noqa: E402
+from src.data import auctions, french, fred, mspd, pd_positions, pd_volume, soma  # noqa: E402
 from src.data.snapshot import (record_vintage, utc_now, verify_checksums, write_checksums,  # noqa: E402
                                write_csv, write_text)
 
@@ -62,6 +63,13 @@ years (2001-07-04 to 2013-03-27), and PDTRGSC-G7L11, the same for more than 7 an
 Values are daily averages for the week. The pre-2013 key has no description in the API; its buckets sum to the
 transactions by counterparty (checks in `src/data/pd_volume.py`). Used only for the cash capacity estimate.
 """,
+    "pd_treasury_positions.csv": """
+NY Fed Markets Data API, primary dealer statistics (FR 2004A), every field as published (as-of Wednesday, key, value
+in $ millions, net = long minus short). Primary dealer net positions in Treasury coupons excluding TIPS, by maturity
+bucket and series break, plus the bills, FRN, TIPS and total keys used to check them: in every week the coupon
+buckets + bills (+ FRNs from 2015) + TIPS equal the published total (details in `src/data/pd_positions.py`). Used
+only for H8 (PREREG_DEALERS.md, tag prereg-dealers); downloaded after that tag.
+""",
     "soma_asof_dates.csv": """
 Every SOMA as-of date listed by the NY Fed API (`/api/soma/asofdates/list.json`), 2003-07-09 onward, weekly
 (Wednesdays, Tuesday or Thursday in holiday weeks). The rebuild picks the usable date from this list.
@@ -101,9 +109,21 @@ def download_pd(s: requests.Session, entries: dict) -> None:
           f"keys {sorted(v['keyid'].unique())}")
 
 
+def download_pdpos(s: requests.Session, entries: dict) -> None:
+    when = utc_now()
+    v = pd_positions.download(s)
+    write_csv(v, pd_positions.SNAPSHOT_NAME)
+    entries[pd_positions.SNAPSHOT_NAME] = {"source": "NY Fed Markets Data API, primary dealer positions",
+                                           "url": pd_positions.SERIES_URL.format(keyid="{keyid}"),
+                                           "downloaded_utc": when, "rows": int(len(v)),
+                                           "first": v["asofdate"].min(), "last": v["asofdate"].max()}
+    print(f"pd positions: {len(v)} rows, {v['asofdate'].min()} to {v['asofdate'].max()}, "
+          f"{v['keyid'].nunique()} keys")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--only", choices=["soma", "pd"], help="refresh only this source")
+    ap.add_argument("--only", choices=["soma", "pd", "pdpos"], help="refresh only this source")
     args = ap.parse_args()
     s = requests.Session()
     entries = {}
@@ -111,6 +131,14 @@ def main() -> None:
     if args.only == "pd":
         download_pd(s, entries)
         record_vintage(entries, {pd_volume.SNAPSHOT_NAME: NOTES[pd_volume.SNAPSHOT_NAME]})
+        write_checksums()
+        problems = verify_checksums()
+        print("checksums written;", "OK" if not problems else problems)
+        return
+
+    if args.only == "pdpos":
+        download_pdpos(s, entries)
+        record_vintage(entries, {pd_positions.SNAPSHOT_NAME: NOTES[pd_positions.SNAPSHOT_NAME]})
         write_checksums()
         problems = verify_checksums()
         print("checksums written;", "OK" if not problems else problems)
@@ -162,6 +190,7 @@ def main() -> None:
 
     download_soma(s, entries)
     download_pd(s, entries)
+    download_pdpos(s, entries)
 
     record_vintage(entries, {k: v for k, v in NOTES.items()})
     write_checksums()

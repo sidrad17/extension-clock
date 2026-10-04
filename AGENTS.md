@@ -77,6 +77,7 @@ extension-clock/
 ├── HYPOTHESIS.md                # Appendix A verbatim; never edited after gate1-prereg
 ├── PREREG_ADDENDUM.md           # tag prereg-addendum; never edited
 ├── PREREG_FLOWCLOCK.md          # second pre-registration (auction supply), tag prereg-flowclock; never edited (section 13)
+├── PREREG_DEALERS.md            # third pre-registration (H8, dealer balance sheets), tag prereg-dealers; never edited (section 16)
 ├── requirements.txt             # pinned
 ├── .env.example                 # DATABENTO_API_KEY=   (optional)   GQH_DEV=1 (team only)
 ├── .gitignore                   # .env, data/cache/, __pycache__/, .ipynb_checkpoints/
@@ -84,6 +85,7 @@ extension-clock/
 │   ├── settings.py              # every parameter (section 6)
 │   ├── flowclock.py             # Flow Clock parameters, as stated in PREREG_FLOWCLOCK.md (section 13)
 │   ├── futures.py               # futures-layer parameters (section 15)
+│   ├── dealers.py               # H8 parameters, as stated in PREREG_DEALERS.md (section 16)
 │   ├── fomc_dates.csv           # FOMC decision dates 1993–2026 (scraped + hand-checked)
 │   └── contract_specs.yaml      # CME tick size, tick value, multiplier per contract, with source URL + date
 ├── data/
@@ -110,7 +112,9 @@ extension-clock/
 │   ├── figures.py               # section 8
 │   ├── report.py                # writes outputs/results.json and tables
 │   ├── auction_events.py        # Flow Clock: auction events, windows, size signal zS, month-end supply SA_m (no returns)
-│   └── flowclock.py             # Flow Clock: window returns, H6a-c, H7, supply leg, netted book, metrics, event path
+│   ├── flowclock.py             # Flow Clock: window returns, H6a-c, H7, supply leg, netted book, metrics, event path
+│   ├── cmt_switch.py            # Phase 4d: CMT switch diagnostic (descriptive)
+│   └── dealers.py               # H8: dealer signal zD (point in time) and the H8 regression
 ├── scripts/
 │   ├── download_all.py          # refresh snapshot (FRED, Fiscal Data, MSPD, Ken French), rewrite checksums
 │   ├── fetch_fomc.py            # scrape FOMC dates into config/fomc_dates.csv
@@ -763,6 +767,36 @@ diagnostic. Descriptive only: no rule, signal, sizing or cost changes; the holdo
   so the distinct-variant count and V do not change. Total logged runs grow by 2 per run.
 - **Reporting.** `results.json["cmt_switch_diagnostic"]`: `cash_vs_futures`, `reopening_control`,
   `reopening_definition`, `cash_check` and `summary` (shares of the gap on A and S).
+
+---
+
+## 16. H8: dealer balance sheets (PREREG_DEALERS.md)
+
+A third pre-registration, an explanation test rather than a trade. Tag `prereg-dealers`, commit `15f67bc` (Oct 3,
+2026), written after Phase 4d and before any dealer-position data was downloaded, loaded or plotted.
+`PREREG_DEALERS.md` is the authority and is never edited after its tag. Question: is the auction effect larger when
+primary dealers already hold a lot of Treasury coupons? No rule, signal, sizing or cost changes, whatever the result.
+
+- **Gate.** With `GQH_DEV=1`, `assert_dealers_prereg()` (`src/trial_log.py`) refuses to download or read dealer
+  positions unless the tag exists and `PREREG_DEALERS.md` and the Flow Clock pre-registration files are unchanged
+  since the tag. Gate 1 and Gate 2 apply unchanged.
+- **Data** (`src/data/pd_positions.py`, snapshot `pd_treasury_positions.csv`, public). NY Fed FR 2004A net positions
+  in Treasury coupons excluding TIPS, summed over the maturity buckets of each NY Fed series break (SBP2001,
+  SBP2013, SBN2013, SBN2015, SBN2022, SBN2024). The keys were found after the tag (the module docstring lists them).
+  `parse()` checks that the buckets plus the other lines equal the published total in every week (exact from
+  2001-07). SBP2001 has no total to check against; its keys follow the SBP2013 naming.
+- **zD** (`src/dealers.py`, `config/dealers.py`).
+  - Publication = the first bond day on or after as-of + 8 days. The NY Fed posts on Thursdays at ~4:15 PM ET, after
+    the close, so a release counts at the close of X only if it was published before X.
+  - X_0 = the latest release known at A-5. zD = (X_0 - mean of the 52 releases before it) / their sd, within one
+    series segment (every series break resets the history; team decision: keep all five resets). Clipped to
+    [-3, 3]; equal priors are handled as for zS.
+- **Test.** LS = a + b zS_pre + c zD on the H6c events that have a zD, with SEs clustered by week of A (as H6) and
+  one-sided p = 1 - Phi(t). Pass: c > 0 and p < 0.05. Secondary: -R_pre and R_post separately, and by decade.
+- **Outputs.** `results.json["H8"]` holds `prereg`, `in_sample`, `oos` (Gate 2) and `data`. `runs/trials.csv` gets
+  one row per run (window `in_sample_h8`, H1_* = c and its CI, Sharpe columns blank, a new `config_hash`).
+- **Test window.** H8 joins the Gate 2 `--oos` run. Because of the 2024-07-03 break, test-window zD exists only from
+  about mid-July 2025.
 
 ---
 

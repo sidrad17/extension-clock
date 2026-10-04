@@ -66,3 +66,15 @@ def test_flowclock_requires_its_tag_and_unchanged_prereg(dev):
     dev.setattr(tl, "_flowclock_changed", lambda: True)
     with pytest.raises(tl.GateError):
         tl.assert_flowclock_prereg()
+
+
+def test_dealers_require_their_tag_and_unchanged_prereg(dev):
+    with pytest.raises(tl.GateError):
+        tl.assert_dealers_prereg()                             # no prereg-dealers tag yet
+    dev.setattr(tl, "_tags", lambda: [tl.GATE1_TAG, tl.FLOWCLOCK_TAG, tl.DEALERS_TAG])
+    dev.setattr(tl, "_dealers_changed", lambda: False)
+    tl.assert_dealers_prereg()
+    dev.setattr(tl, "_dealers_changed", lambda: True)
+    with pytest.raises(tl.GateError):
+        tl.assert_dealers_prereg()
+    assert tl.DEALERS_FILES[0] == "PREREG_DEALERS.md" and set(tl.FLOWCLOCK_FILES) <= set(tl.DEALERS_FILES)
