@@ -800,6 +800,95 @@ primary dealers already hold a lot of Treasury coupons? No rule, signal, sizing 
 
 ---
 
+## 17. OOS evaluation (Gate 2: `python run_all.py --oos`)
+
+Written on Oct 4, 2026, before `--oos` was built and before any test-window data was downloaded for it. It fixes,
+for every pre-registered test and every strategy, the test-window statistic and its label. Criteria come from
+`HYPOTHESIS.md` and `PREREG_*.md` where they exist. Where none exists, the test window reports the estimate, its t
+and its sign only, labelled "consistent" when the sign matches the in-sample sign (else "not consistent"); there
+is no pass or fail. Kill conditions apply as written. No definition, parameter, signal, sizing, cost or risk rule
+changes.
+
+**The run.**
+- **Window.** `OOS_START` to `OOS_END` (2024-10-01 to 2026-09-30). The same code paths as in-sample
+  (`run_strategy`, `run_curve_allocated`, `run_book`, `run_futures_book`, `h1`...`h7`, `h8`); only the date window
+  changes, as for the post-publication and post-LYZ sub-samples (section 14).
+- **Months and events.** Months whose T falls in the window (2024-10 to 2026-09). H3 and the placebo keep the months
+  whose later window ends inside the window, as in-sample, so 2026-09 drops out of both. Events whose A-5..A+5 lies
+  inside the window (`in_sample_mask`).
+- **Signals.** Point in time on all history: z_m and its components, the surprise, z_pension, zA, zS and zD are
+  standardized on every past value from 1990 on (the in-sample history included). Months without Ken French data
+  through E-1 have no z_pension and leave H5 (likely 2026-09).
+- **Strategies.** Each starts flat on 2024-10-01: NAV 1, drawdown rule reset (as the post-publication and post-LYZ
+  runs). Risk rules as frozen (all on), at 1x and 2x costs. The 60-day sigma and DV01 look-backs and the ADV
+  window reach back before the window, as usual. Futures: the TN / UB fallback cut-off is the in-sample first
+  sizable entry (`futures_data_checks_insample.json`), not recomputed on test-window legs.
+- **Data.** Rows dated up to IS_END come from the committed snapshot and the in-sample Databento cache. Rows dated
+  after IS_END come only from data that `--oos` downloads after the guard passes, kept as rows dated
+  (IS_END, OOS_END]:
+  - FRED: CURVE_KNOTS and DTB3.
+  - Fiscal Data auctions (by `auction_date`).
+  - NY Fed SOMA as-of dates and holdings (only the as-of dates the rebuild needs).
+  - NY Fed dealer positions (H8).
+  - Ken French daily factors (the derived `pension_pressure.csv`).
+  The committed snapshot already holds rows after IS_END from the Oct 3 download (FRED to 2026-10-01, auctions to
+  2026-10-08, SOMA and dealer data to 2026-09). `--oos` never reads them; in-sample loaders cut at IS_END. FOMC
+  dates: the committed `config/fomc_dates.csv` (scheduled dates are public a year ahead). Not downloaded, since no
+  test or strategy uses them in the window: MSPD and dealer transactions (cash capacity). Databento GLBX.MDP3,
+  2024-10-01 to 2026-09-30, same parents and schemas as section 15 (`statistics` to 2026-10-01 12:00 UTC, `ohlcv-1d`
+  to 2026-10-01, monthly `definition` snapshots): `--oos` prints the cost estimate and stops. The pull happens only
+  on `--oos --databento-ok`, given after the team approves the estimate.
+- **Gate.** With `GQH_DEV=1`: HEAD tagged `gate2-frozen` and a clean tree before any download (`assert_gate2`); the
+  date guard still refuses every date after IS_END without that tag. Runs once (`runs/oos_run.log`); a second run
+  needs `--force-rerun` and appends a "FORCED RERUN" line, to be disclosed. Downloads stage in git-ignored
+  `data/cache/`. No test-window number is printed or written until every block is computed; a run that stops before
+  any return is computed (download, cost check) is not a run.
+- **Outputs.** `outputs/results_oos.json`, merged into `results.json` as `oos` (month-end leg and the label
+  table), `flowclock.oos`, `H8.oos` and `futures.oos`. A plain `python run_all.py` merges the same file, so a fresh
+  clone reproduces it. Tables `outputs/tables/*_oos.csv` (futures: derived tables only, under the Phase 4b rules).
+  Figure `outputs/figures/equity_curve_oos.png`. The downloaded public rows are committed to `data/oos/` with
+  checksums and a vintage, so a keyless `--oos` reproduces the block without downloading.
+- **Trials.** 14 rows, windows `oos_*`:
+  - `oos`, `oos_placebo`, `oos_cost2x`.
+  - `oos_curve_allocated` and its `_cost2x`.
+  - `oos_flowclock` and `oos_flowclock_cost2x`: book and supply leg each.
+  - `oos_h8`.
+  - `oos_futures` and `oos_futures_cost2x`: month-end ZN and supply leg each.
+
+  The Deflated Sharpe, `total_logged_runs` and `distinct_variants` count in-sample rows only, because the deflation
+  is for in-sample selection. `trials.count` stays the row count of the whole file.
+- **Pseudo-window check (test only).** `python run_all.py --oos-pseudo` runs the same path on 2022-10-01 to
+  2024-09-30, inside the in-sample. It splits the committed data at 2022-09-30 as if the later rows were downloaded.
+  It writes nothing to the repo, logs no trial, and must equal the existing engines run directly on that window
+  (`tests/test_oos.py`).
+
+**Labels** (in-sample reference: the full in-sample block, 1993-01 to 2024-09; futures 2010-07 to 2024-09):
+
+| Test or strategy | Test-window statistic | Label |
+|---|---|---|
+| H1 (headline 1) | b, Newey-West 95% CI, t, n; terciles; yield version | `HYPOTHESIS.md` power note: the window "can confirm the sign, not significance": "sign confirmed" if b > 0, else "sign not confirmed" |
+| H4 (headline 2) | net Sharpe forecast-sized vs calendar-only, 1x; diff, paired bootstrap CI | `HYPOTHESIS.md`: "in sign in the test window": "pass" if diff > 0, else "fail"; at 2x: consistent |
+| H8 | c, one-sided p, n | `PREREG_DEALERS.md`: "pass" if c > 0 and p < 0.05, else "fail" |
+| H1 components; addendum (a) b and c, (b) b_ref and b_oth, (c) b_s; H2; H3 coefficient and mean R3; H5 (each coefficient); placebo H1 b and H4 diff; luck test (month-end mean); H6a, H6b, H6c; H7 c and a; Headline 3 diff (1x, 2x); size-weighted vs calendar supply; curve-allocated vs calendar-only (1x, 2x) | estimate, t, sign, n | consistent / not consistent |
+| Each strategy at 1x and 2x: forecast-sized, calendar-only, curve-allocated, Flow Clock book, cash supply leg, demand leg alone, futures month-end ZN, futures supply leg | required metrics (section 7.13); net Sharpe with t = mean / (sd / √days) of daily net excess | consistent / not consistent (net Sharpe sign at the same cost) |
+
+**Kill conditions as written,** evaluated on the test window where the text is a comparison:
+- `HYPOTHESIS.md`:
+  - "b ≤ 0": met if b ≤ 0.
+  - "or centered on zero": no threshold is written, so b, t and the CI are reported for the team.
+  - "no reversal": met if mean R3 ≥ 0.
+  - "forecast-sized ≤ calendar-only": met if the net Sharpes compare so, 1x.
+  - "effect only in the 1990s": not applicable to the window.
+  - "vanishes at 2× costs": no threshold is written; the 2x net Sharpes are reported for the team (as the futures
+    kill condition in section 15).
+- `PREREG_FLOWCLOCK.md`:
+  - "wrong sign in-sample" and "absent in 2009-2024": in-sample conditions, not applicable to the window.
+  - "the book does not beat the demand leg alone, net of costs": met if Sharpe(book) ≤ Sharpe(demand alone), 1x.
+  - "disappears at 2x costs": the 2x net Sharpes of the book and the cash and futures supply legs are reported for
+    the team.
+
+---
+
 ## Appendix A: `HYPOTHESIS.md` (write verbatim at Phase 0)
 
 ```markdown
