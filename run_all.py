@@ -1143,6 +1143,7 @@ def _build_futures_tables(cal, win, fut_months, fomc, rf, y10, ev, sup_entries, 
 
 OOS_JSON = report.OUTPUTS / "results_oos.json"
 OOS_LOG = REPO_ROOT / "runs" / "oos_run.log"
+OOS_MARK = oos_data.CACHE_DIR / "oos" / "run_started.log"      # git-ignored: the start of a run in progress
 OOS_FUT_TABLES = {"legs": "futures_legs_oos.csv", "daily": "futures_daily_oos.csv",
                   "checks": "futures_data_checks_oos.json"}
 OOS_FUT_UNITS = {k: FUT_UNITS[k] for k in ("month_end_zn", "month_end_zn_cost_2x", "supply_calendar",
@@ -1519,13 +1520,28 @@ def oos_package(blocks: dict, ins: dict, meta: dict, fig: dict) -> dict:
 
 
 def oos_log_lines() -> list[str]:
-    return OOS_LOG.read_text(encoding="utf-8").splitlines() if OOS_LOG.exists() else []
+    """runs/oos_run.log, then the start line of a run that has not completed (OOS_MARK)."""
+    return [ln for p in (OOS_LOG, OOS_MARK) if p.exists() for ln in p.read_text(encoding="utf-8").splitlines()]
 
 
-def oos_log(line: str) -> None:
+def oos_log(line: str, path: Path | None = None) -> None:
+    path = path or OOS_LOG
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as f:
+        f.write(f"{utc_now()} {line}\n")
+
+
+def oos_log_close(line: str) -> None:
+    """At the end of a counted run: move the start line(s) from OOS_MARK into runs/oos_run.log, then `line`. The
+    start is kept in git-ignored data/cache/ while the run computes, because a new file under runs/ would make the
+    tree dirty and the Gate 2 date guard (trial_log.guard_end, GQH_DEV=1) refuses a dirty tree; a run that stops after
+    its start line stays recorded there, so the next attempt needs --force-rerun."""
     OOS_LOG.parent.mkdir(parents=True, exist_ok=True)
     with OOS_LOG.open("a", encoding="utf-8") as f:
+        if OOS_MARK.exists():
+            f.write(OOS_MARK.read_text(encoding="utf-8"))
         f.write(f"{utc_now()} {line}\n")
+    OOS_MARK.unlink(missing_ok=True)
 
 
 def oos_futures_source(split: str, end: str, reproduce: bool) -> dict | None:
@@ -1545,7 +1561,8 @@ def run_oos(databento_ok: bool = False, force_rerun: bool = False) -> None:
     """`python run_all.py --oos` (CLAUDE.md section 17). Two paths:
     * first run (no committed data/oos/): HEAD tagged gate2-frozen and a clean tree in every mode
       (trial_log.assert_gate2_download), public test-window download staged in data/cache/oos/, then the Databento
-      estimate (the pull needs --databento-ok). Logged in runs/oos_run.log; a second run needs --force-rerun.
+      estimate (the pull needs --databento-ok). Logged in runs/oos_run.log (oos_log_close); a second run needs
+      --force-rerun.
     * keyless reproduction (data/oos/ committed and matching its checksums): no download, no key; the futures block
       from the committed derived *_oos tables. Without GQH_DEV it is not a run (judges' reproduction): runs/ is not
       touched. With GQH_DEV=1 it counts as a rerun (--force-rerun, a FORCED RERUN line, 14 trial rows).
@@ -1591,7 +1608,7 @@ def run_oos(databento_ok: bool = False, force_rerun: bool = False) -> None:
                  "test-window pull; no return computed: not a run.")
     if counted:
         oos_log(("FORCED RERUN " if started else "RUN START ") + f"commit {git['commit']} dirty={git['dirty']} "
-                f"mode={'reproduce' if reproduce else 'download'}")
+                f"mode={'reproduce' if reproduce else 'download'}", OOS_MARK)
     oos_data.build_view(new_dir, split=IS_END, end=OOS_END, view_dir=oos_data.VIEW_DIR)
     step("--oos: computing every block (nothing is printed or written until all are done)", t0)
     with reading_from(oos_data.VIEW_DIR):
@@ -1626,7 +1643,7 @@ def run_oos(databento_ok: bool = False, force_rerun: bool = False) -> None:
     ins["trials"]["count"] = trial_count()
     report.write_results(ins, report.RESULTS_JSON)
     if counted:
-        oos_log(f"RUN COMPLETE commit {git['commit']} trial_rows_written={n_written}")
+        oos_log_close(f"RUN COMPLETE commit {git['commit']} trial_rows_written={n_written}")
     step(f"--oos done: outputs/results_oos.json, merged into outputs/results.json (oos, flowclock.oos, H8.oos, "
          f"futures.oos); {len(blocks['_rows'])} trial rows ({n_written} written to runs/trials.csv)", t0)
     lab = out["oos"]["labels"]["headline"]

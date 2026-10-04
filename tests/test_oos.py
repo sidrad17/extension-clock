@@ -43,6 +43,7 @@ def before_tag(monkeypatch, tmp_path):
     monkeypatch.setattr(oos_data, "STAGE_DIR", tmp_path / "stage")
     monkeypatch.setattr(oos_data, "VIEW_DIR", tmp_path / "view")
     monkeypatch.setattr(run_all, "OOS_LOG", tmp_path / "oos_run.log")
+    monkeypatch.setattr(run_all, "OOS_MARK", tmp_path / "run_started.log")
     monkeypatch.setattr(run_all, "OOS_JSON", tmp_path / "results_oos.json")
     return tmp_path
 
@@ -89,10 +90,12 @@ def test_download_guard_outside_git(monkeypatch):
         tl.assert_gate2_download()
 
 
-def test_second_run_needs_force_rerun(monkeypatch, before_tag, network_log):
+@pytest.mark.parametrize("where", ["OOS_LOG", "OOS_MARK"])
+def test_second_run_needs_force_rerun(where, monkeypatch, before_tag, network_log):
+    """A completed run (runs/oos_run.log) or one that stopped after its start (the git-ignored marker) is a run."""
     monkeypatch.setenv("GQH_DEV", "1")
     monkeypatch.setattr(oos_data, "committed_ok", lambda: True)
-    run_all.OOS_LOG.write_text("2026-10-05T00:00:00Z RUN START commit abc dirty=False mode=download\n")
+    getattr(run_all, where).write_text("2026-10-05T00:00:00Z RUN START commit abc dirty=False mode=download\n")
     with pytest.raises(SystemExit) as e:
         run_all.main(["--oos"])
     assert "--force-rerun" in str(e.value.code)
@@ -179,9 +182,14 @@ def test_results_oos_json_is_merged_when_present():
 def test_oos_reproduce_path_end_to_end(monkeypatch, tmp_path):
     """The whole `--oos` path (keyless reproduction from a committed data/oos/) on the pseudo-window, with every
     output redirected to tmp_path: the run-once log, the data view, evaluate_window, labels, tables, figure,
-    results_oos.json and its merge into results.json; then a second counted run refuses without --force-rerun."""
+    results_oos.json and its merge into results.json; then a second counted run refuses without --force-rerun.
+    GQH_DEV=1 with the real Gate 2 date guard: HEAD counts as tagged, and the tree counts as dirty as soon as the run
+    log or results_oos.json exists, so a file written into the repo before every block is computed fails the run."""
     split, start, end = "2022-09-30", "2022-10-01", "2024-09-30"
-    monkeypatch.setenv("GQH_DEV", "")
+    monkeypatch.setenv("GQH_DEV", "1")
+    monkeypatch.setattr(tl, "IS_END", split)            # the date guard treats the pseudo-window as the test window
+    monkeypatch.setattr(tl, "_head_tags", lambda: [tl.GATE2_TAG])
+    monkeypatch.setattr(tl, "_dirty", lambda: run_all.OOS_LOG.exists() or run_all.OOS_JSON.exists())
     for k, v in (("IS_END", split), ("OOS_START", start), ("OOS_END", end)):
         monkeypatch.setattr(run_all, k, v)
     oos_dir, out = tmp_path / "oos", tmp_path / "outputs"
@@ -201,7 +209,7 @@ def test_oos_reproduce_path_end_to_end(monkeypatch, tmp_path):
     monkeypatch.setattr(run_all, "OOS_JSON", out / "results_oos.json")
     monkeypatch.setattr(run_all, "FIG_DIR", out / "figures")
     monkeypatch.setattr(run_all, "OOS_LOG", tmp_path / "oos_run.log")
-    monkeypatch.setattr(run_all, "dev_mode", lambda: True)          # counted as the team's run; guards stay off
+    monkeypatch.setattr(run_all, "OOS_MARK", tmp_path / "cache" / "run_started.log")
     logged = []
     monkeypatch.setattr(run_all, "log_trials", lambda rows: logged.extend(rows) or len(rows))
     run_all.main(["--oos"])
@@ -217,7 +225,7 @@ def test_oos_reproduce_path_end_to_end(monkeypatch, tmp_path):
                                              "oos_curve_allocated_cost2x", "oos_flowclock", "oos_flowclock",
                                              "oos_flowclock_cost2x", "oos_flowclock_cost2x", "oos_h8"]
     log = (tmp_path / "oos_run.log").read_text().splitlines()
-    assert " RUN START " in log[0] and " RUN COMPLETE " in log[1]
+    assert " RUN START " in log[0] and " RUN COMPLETE " in log[1] and not run_all.OOS_MARK.exists()
     with pytest.raises(SystemExit) as e:
         run_all.main(["--oos"])
     assert "--force-rerun" in str(e.value.code)
