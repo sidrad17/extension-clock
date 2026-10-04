@@ -1565,14 +1565,14 @@ def run_oos(databento_ok: bool = False, force_rerun: bool = False) -> None:
         new_dir = oos_data.OOS_DATA_DIR
         step("--oos: keyless reproduction from the committed data/oos/ (no download)", t0)
     else:
-        if not dev_mode():
-            print("--oos: GQH_DEV is not 1, so the 14 trial rows of this run will not be written to runs/trials.csv "
-                  "(rule 7; src/trial_log.py). The team runs it with GQH_DEV=1.", flush=True)
         try:
             assert_gate2_download()
         except GateError as e:
             sys.exit(f"--oos: {e} Nothing downloaded or computed. The test window runs once, after the team tags "
                      f"{GATE2_TAG} (CLAUDE.md section 17).")
+        if not dev_mode():
+            print("--oos: GQH_DEV is not 1, so the 14 trial rows of this run will not be written to runs/trials.csv "
+                  "(rule 7; src/trial_log.py). The team runs it with GQH_DEV=1.", flush=True)
         if not oos_data.staged():
             step("--oos: Gate 2 guard passed; downloading the public test-window rows into data/cache/oos/", t0)
             entries = oos_data.download(dest=oos_data.STAGE_DIR, split=IS_END, end=OOS_END)
