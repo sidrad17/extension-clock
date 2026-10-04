@@ -10,7 +10,7 @@ Gator Quant Hacks 2026, Systematic Trading track.
 You need git and Python 3.11 or later (checked with 3.12). No API key and no `.env` file.
 
 ```bash
-git clone https://github.com/sidrad17/extension-clock.git && cd extension-clock
+git clone https://github.com/sidrad17/flow-clock.git && cd flow-clock
 python3.12 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
 python run_all.py
 ```
@@ -26,6 +26,9 @@ git diff outputs/results.json     # only meta.commit and meta.generated_utc chan
 
 On a fresh clone (macOS, Python 3.12.0, no `.env`) those two lines were the only change, and every table and figure
 was byte-identical. On another OS the PNG bytes may differ even though no number changes.
+One intermittent difference is not explained: in 1 of about 95 runs, 24 of the sensitivity grid's 480 cells, all in
+one rebuild variant (entry T-5, settled by month-end, Fed holdings deducted), came out different; the cause is
+unknown, and the headline numbers and every test were unaffected.
 
 Runtime on an Apple M2 (8 cores, 16 GB): `pip install` about 20 s with a warm pip cache, `pytest -q` (no network)
 about 1 min, and `python run_all.py` about 2 min. Most of that is the sensitivity grid's 20 index rebuilds, which
@@ -80,3 +83,10 @@ After reviewing the index rebuild and before computing any return, we added
 [PREREG_ADDENDUM.md](PREREG_ADDENDUM.md) (tag `prereg-addendum`). It adds three analyses reported beside H1, because
 forced demand is concentrated in refunding months, and records the Fed-holdings deduction by CUSIP. The headline
 stays the pre-registered H1.
+
+## Repository history
+
+The project started as "The Extension Clock". That first hypothesis failed its test, and the Flow Clock is what
+survived. This repository carries the full commit and tag history of the original private repository, minus one
+commit that held licensed Databento data and was force-pushed away. The original repository's GitHub activity log,
+with the push time of every pre-registration tag, is available to judges on request.
